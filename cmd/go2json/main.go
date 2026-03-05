@@ -40,7 +40,7 @@ func main() {
 					&cli.StringFlag{
 						Name:  "format",
 						Value: "llm",
-						Usage: "format to print the parsed information: llm, text_short, test_long, json",
+						Usage: "format to print the parsed information: llm, json, or grepindex",
 					},
 					&cli.BoolFlag{
 						Name:  "omit-nulls",

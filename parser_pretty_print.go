@@ -58,12 +58,8 @@ func PrettyPrint(
 		return prettyPrintJSON(parsed, omitNulls)
 	case "grepindex":
 		return prettyPrintGrepIndex(parsed, ignoreRules, &sb)
-	case "llm":
+	case "llm", "":
 		return prettyPrintLLM(parsed, ignoreRules, plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, comments, &sb)
-	case "text_short", "":
-		return prettyPrintTextShort(parsed, ignoreRules, plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, comments, &sb)
-	case "text_long":
-		return prettyPrintTextLong(parsed, plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, tags, comments, &sb)
 	default:
 		return "Invalid mode: " + mode
 	}
@@ -180,120 +176,6 @@ func prettyPrintLLM(
 	return sb.String()
 }
 
-func prettyPrintTextShort(
-	parsed []*ParsedInfo,
-	ignoreRules []string,
-	plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, comments bool,
-	sb *strings.Builder,
-) string {
-	for _, p := range parsed {
-		if len(p.Packages) == 0 {
-			continue
-		}
-		printPosition(p, sb)
-		for _, pkg := range p.Packages {
-			fmt.Fprintln(sb, "Package:", pkg.Package)
-			for _, s := range pkg.Structs {
-				if shouldIgnoreStruct(s, pkg.Package, ignoreRules) || !shouldIncludeStruct(s, plainStructs, structsWithMethod) {
-					continue
-				}
-				fmt.Fprintln(sb, "  Struct:", s.Name)
-				if comments && len(s.Docs) > 0 {
-					fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(s.Docs, "\n"))
-				}
-				if fieldsStructsWithMethod || fieldsPlainStructs {
-					for _, f := range s.Fields {
-						if shouldIgnoreField(f, ignoreRules) {
-							continue
-						}
-						fmt.Fprintln(sb, "    Field:", f.Name, f.Type)
-						if comments && len(f.Docs) > 0 {
-							fmt.Fprintf(sb, "      Comment: %s\n", strings.Join(f.Docs, "\n"))
-						}
-					}
-				}
-				if methods && len(s.Methods) > 0 {
-					for _, m := range s.Methods {
-						if shouldIgnoreMethod(m, ignoreRules) {
-							continue
-						}
-						fmt.Fprintln(sb, "    Method:", m.Name)
-						if comments && len(m.Docs) > 0 {
-							fmt.Fprintf(sb, "      Comment: %s\n", strings.Join(m.Docs, "\n"))
-						}
-					}
-				}
-			}
-			if functions && len(pkg.Functions) > 0 {
-				for _, f := range pkg.Functions {
-					if shouldIgnoreFunction(f, ignoreRules) {
-						continue
-					}
-					fmt.Fprintln(sb, "  Function:", f.Name)
-					if comments && len(f.Docs) > 0 {
-						fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(f.Docs, "\n"))
-					}
-				}
-			}
-		}
-	}
-	return sb.String()
-}
-
-func prettyPrintTextLong(
-	parsed []*ParsedInfo,
-	plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, tags, comments bool,
-	sb *strings.Builder,
-) string {
-	for _, p := range parsed {
-		if len(p.Packages) == 0 {
-			continue
-		}
-		printPosition(p, sb)
-		for _, pkg := range p.Packages {
-			fmt.Fprintf(sb, "Package: %s\n", pkg.Package)
-			for _, s := range pkg.Structs {
-				if !shouldIncludeStruct(s, plainStructs, structsWithMethod) {
-					continue
-				}
-				fmt.Fprintf(sb, "  Struct: %s\n", s.Name)
-				if comments && len(s.Docs) > 0 {
-					fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(s.Docs, "\n"))
-				}
-				if fieldsStructsWithMethod || fieldsPlainStructs {
-					for _, f := range s.Fields {
-						fmt.Fprintf(sb, "    Field: %s %s\n", f.Name, f.Type)
-						if f.Tag != "" && tags {
-							fmt.Fprintf(sb, "      Tag: %s\n", f.Tag)
-						}
-						if f.Comment != "" && comments {
-							fmt.Fprintf(sb, "      Comment: %s\n", f.Comment)
-						}
-					}
-				}
-				if methods && len(s.Methods) > 0 {
-					for _, m := range s.Methods {
-						fmt.Fprintf(sb, "    Method: %s\n", m.Name)
-						fmt.Fprintf(sb, "      Signature: %s\n", m.Signature)
-						if comments && len(m.Docs) > 0 {
-							fmt.Fprintf(sb, "      Comment: %s\n", strings.Join(m.Docs, "\n"))
-						}
-					}
-				}
-			}
-			if functions && len(pkg.Functions) > 0 {
-				for _, f := range pkg.Functions {
-					fmt.Fprintf(sb, "  Function: %s\n", f.Name)
-					fmt.Fprintf(sb, "    Signature: %s\n", f.Signature)
-					if comments && len(f.Docs) > 0 {
-						fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(f.Docs, "\n"))
-					}
-				}
-			}
-		}
-	}
-	return sb.String()
-}
 
 // Helper Functions
 
