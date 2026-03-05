@@ -1,16 +1,13 @@
 package main
 
-import "github.com/sashabaranov/go-openai"
-
+// Example data structures for parsing demonstration
 type Person struct {
-	Name    string
-	TestReq openai.ChatCompletionRequest
+	Name string
+	Age  int
 }
 
-func reverseString(s string) string {
-	runes := []rune(s)
-	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-		runes[i], runes[j] = runes[j], runes[i]
-	}
-	return string(runes)
+type Address struct {
+	Street string
+	City   string
+	Zip    string
 }

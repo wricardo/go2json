@@ -1,0 +1,158 @@
+File: /Users/wricardo/go/src/github.com/wricardo/go2json/structparser.go
+Package: codesurgeon
+  Struct: Constant
+    Comment: Constant represents a constant in a Go package.
+    Field: Name string
+    Field: Value string
+    Field: Docs []string
+  Struct: Field
+    Comment: Field represents a field in a Go struct.
+    Field: Name string
+    Field: Type string
+    Field: TypeDetails TypeDetails
+    Field: Tag string
+    Field: Private bool
+    Field: Pointer bool
+    Field: Slice bool
+    Field: Docs []string
+    Field: Comment string
+    Field: PtrStruct *Struct
+  Struct: Function
+    Comment: Function represents a Go function with its parameters, return types, and documentation.
+    Field: Name string
+    Field: Params []Param
+    Field: Returns []Param
+    Field: Docs []string
+    Field: Signature string
+    Field: Body string
+    Field: Definition string
+    Field: IsExported bool
+    Field: IsTest bool
+    Field: IsBenchmark bool
+  Struct: Import
+    Field: Name string
+    Field: Path string
+    Field: PtrPackage *Package
+  Struct: Interface
+    Comment: Interface represents a Go interface and its methods.
+    Field: Name string
+    Field: Methods []Method
+    Field: Docs []string
+    Field: Definition string
+    Field: IsExported bool
+    Field: PtrPackage *Package
+  Struct: Method
+    Comment: Method represents a method in a Go struct or interface.
+    Field: Receiver string
+    Field: Name string
+    Field: Params []Param
+    Field: Returns []Param
+    Field: Docs []string
+    Field: Signature string
+    Field: Body string
+    Field: Definition string
+    Field: IsExported bool
+    Field: IsTest bool
+    Field: IsBenchmark bool
+    Field: PtrStruct *Struct
+  Struct: Module
+    Comment: Module represents a Go module with its packages.
+    Field: RootModuleName string
+    Field: RelativeDirectory string
+    Field: FullName string
+    Field: Packages []Package
+  Struct: Package
+    Comment: Package represents a Go package with its components such as imports, structs, functions, etc.
+    Field: Package string
+    Field: ModuleName string
+    Field: Imports []Import
+    Field: Structs []Struct
+    Field: Functions []Function
+    Field: Variables []Variable
+    Field: Constants []Constant
+    Field: Interfaces []Interface
+    Field: PtrModule *Module
+  Struct: Param
+    Comment: Param represents a parameter or return value in a Go function or method.
+    Field: Name string
+    Field: Type string
+    Field: TypeDetails TypeDetails
+    Field: PtrMethod *Method
+    Field: PtrFunc *Function
+  Struct: ParsedInfo
+    Comment: ParsedInfo holds parsed information about Go packages.
+    Field: Modules []Module
+    Field: Packages []Package
+    Field: Directory string
+    Field: File string
+  Struct: Struct
+    Comment: Struct represents a Go struct and its fields and methods.
+    Field: Name string
+    Field: Fields []Field
+    Field: Methods []Method
+    Field: Docs []string
+    Field: Definition string
+    Field: IsExported bool
+    Field: PtrPackage *Package
+  Struct: TypeDetails
+    Field: Package *string
+    Field: PackageName *string
+    Field: Type *string
+    Field: TypeName string
+    Field: IsPointer bool
+    Field: IsSlice bool
+    Field: IsMap bool
+    Field: IsBuiltin bool
+    Field: IsExternal bool
+    Field: TypeReferences []TypeReference
+  Struct: TypeReference
+    Field: Package *string
+    Field: PackageName *string
+    Field: Name string
+  Struct: Variable
+    Comment: Variable represents a global variable in a Go package.
+    Field: Name string
+    Field: Type string
+    Field: Docs []string
+  Function: ParseFile
+    Comment: ParseFile parses a Go file or directory and returns the parsed information.
+  Function: ParseDirectory
+    Comment: ParseDirectory parses a directory containing Go files and returns the parsed information.
+  Function: ParseString
+    Comment: ParseString parses Go source code provided as a string and returns the parsed information.
+  Function: augment
+  Function: ParseDirectoryRecursive
+    Comment: ParseDirectoryRecursive parses a directory recursively and returns the parsed information.
+  Function: getModulePath
+    Comment: getModulePath reads the module name from the go.mod file.
+  Function: ParseDirectoryWithFilter
+    Comment: ParseDirectoryWithFilter parses a directory with an optional filter function to include specific files.
+  Function: extractStructs
+    Comment: extractStructs extracts structs from the provided documentation package.
+  Function: extractInterfaces
+    Comment: extractInterfaces extracts interfaces from the provided documentation package.
+  Function: extractImports
+    Comment: extractImports extracts unique imports from the provided package.
+  Function: extractConstantsVariables
+    Comment: extractConstantsVariables extracts constants and variables from the provided package.
+  Function: extractParams
+  Function: formatParams
+  Function: exprToString
+  Function: exprToStringoriginal
+  Function: getDocsForStruct
+  Function: getDocsForFieldAst
+  Function: getDocsForField
+  Function: cleanDocText
+  Function: void
+  Function: resolveFullImportPath
+    Comment: resolveFullImportPath resolves a short package name to its full import path
+by looking through the package's imports list.
+  Function: getFullType
+    Comment: getFullType processes an AST expression and returns a comprehensive TypeReference.
+  Function: fieldListToString
+    Comment: fieldListToString converts an *ast.FieldList to its string representation.
+Implement this function based on your specific requirements.
+  Function: justTypeString
+    Comment: justTypeString is a helper function to format type strings based on flags.
+Implement this function based on your specific requirements.
+

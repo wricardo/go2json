@@ -1,0 +1,43 @@
+File: /Users/wricardo/go/src/github.com/wricardo/go2json/structparser.go
+Package: codesurgeon
+  Struct: Constant
+    Comment: Constant represents a constant in a Go package.
+    Name (string), Value (string), Docs ([]string)
+  Struct: Field
+    Comment: Field represents a field in a Go struct.
+    Name (string), Type (string), TypeDetails (TypeDetails), Tag (string), Private (bool), Pointer (bool), Slice (bool), Docs ([]string), Comment (string), PtrStruct (*Struct)
+  Struct: Function
+    Comment: Function represents a Go function with its parameters, return types, and documentation.
+    Name (string), Params ([]Param), Returns ([]Param), Docs ([]string), Signature (string), Body (string), Definition (string), IsExported (bool), IsTest (bool), IsBenchmark (bool)
+  Struct: Import
+    Name (string), Path (string), PtrPackage (*Package)
+  Struct: Interface
+    Comment: Interface represents a Go interface and its methods.
+    Name (string), Methods ([]Method), Docs ([]string), Definition (string), IsExported (bool), PtrPackage (*Package)
+  Struct: Method
+    Comment: Method represents a method in a Go struct or interface.
+    Receiver (string), Name (string), Params ([]Param), Returns ([]Param), Docs ([]string), Signature (string), Body (string), Definition (string), IsExported (bool), IsTest (bool), IsBenchmark (bool), PtrStruct (*Struct)
+  Struct: Module
+    Comment: Module represents a Go module with its packages.
+    RootModuleName (string), RelativeDirectory (string), FullName (string), Packages ([]Package)
+  Struct: Package
+    Comment: Package represents a Go package with its components such as imports, structs, functions, etc.
+    Package (string), ModuleName (string), Imports ([]Import), Structs ([]Struct), Functions ([]Function), Variables ([]Variable), Constants ([]Constant), Interfaces ([]Interface), PtrModule (*Module)
+  Struct: Param
+    Comment: Param represents a parameter or return value in a Go function or method.
+    Name (string), Type (string), TypeDetails (TypeDetails), PtrMethod (*Method), PtrFunc (*Function)
+  Struct: ParsedInfo
+    Comment: ParsedInfo holds parsed information about Go packages.
+    Modules ([]Module), Packages ([]Package), Directory (string), File (string)
+  Struct: Struct
+    Comment: Struct represents a Go struct and its fields and methods.
+    Name (string), Fields ([]Field), Methods ([]Method), Docs ([]string), Definition (string), IsExported (bool), PtrPackage (*Package)
+  Struct: TypeDetails
+    Package (*string), PackageName (*string), Type (*string), TypeName (string), IsPointer (bool), IsSlice (bool), IsMap (bool), IsBuiltin (bool), IsExternal (bool), TypeReferences ([]TypeReference)
+  Struct: TypeReference
+    Package (*string), PackageName (*string), Name (string)
+  Struct: Variable
+    Comment: Variable represents a global variable in a Go package.
+    Name (string), Type (string), Docs ([]string)
+  Functions: ParseFile, ParseDirectory, ParseString, augment, ParseDirectoryRecursive, getModulePath, ParseDirectoryWithFilter, extractStructs, extractInterfaces, extractImports, extractConstantsVariables, extractParams, formatParams, exprToString, exprToStringoriginal, getDocsForStruct, getDocsForFieldAst, getDocsForField, cleanDocText, void, resolveFullImportPath, getFullType, fieldListToString, justTypeString
+

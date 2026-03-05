@@ -7,7 +7,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 go2json is a Go library and CLI tool for analyzing and parsing Go code:
 - **AST-based code analysis**: Extracts structs, methods, functions, and type information from Go source
 - **Multiple output formats**: Supports `llm`, `text_short`, `text_long`, and `json` formats
-- **AI integration**: Uses instructor-go with OpenAI/Anthropic APIs for structured code analysis
 - **Stack trace parsing**: Analyzes Go function signatures and receiver types
 
 ## Essential Commands
@@ -51,11 +50,7 @@ go test -v ./... -count=1  # Disable test caching
 
 2. **`codesurgeon.go`**: Provides code manipulation utilities for analyzing function signatures, receiver types, and call chains. Used by stack trace analysis.
 
-3. **`ai/ai.go`**: Unified interface for OpenAI and Anthropic APIs using instructor-go for structured, type-safe outputs.
-
-4. **`log2/log2.go`**: Logging configuration using zerolog.
-
-5. **`cmd/go2json/main.go`**: CLI entry point using urfave/cli/v2 framework with the `parse` command.
+3. **`cmd/go2json/main.go`**: CLI entry point using urfave/cli/v2 framework with the `parse` command.
 
 ### Data Flow
 
@@ -67,19 +62,11 @@ go test -v ./... -count=1  # Disable test caching
 ### Key Dependencies
 
 - `golang.org/x/tools`: Go AST and type analysis
-- `github.com/instructor-ai/instructor-go`: Type-safe AI responses
 - `github.com/urfave/cli/v2`: CLI framework with command/flag support
-- `github.com/rs/zerolog`: Structured logging
 
 ## Development Workflow
 
-1. **Environment Setup** (optional, only for AI features):
-   ```bash
-   cp .env.example .env
-   # Add: OPENAI_API_KEY=sk-...
-   ```
-
-2. **Before Committing**:
+1. **Before Committing**:
    ```bash
    goimports -w .
    go test ./...
@@ -111,8 +98,8 @@ The main output type containing:
 ## Important Notes
 
 - Go 1.24.0+ required (see go.mod)
-- No external services required for basic parsing (AI features optional)
-- Stack trace analysis functions (from deleted neo4j2 package) are in `codesurgeon.go`
+- No external services required for parsing
+- Pure Go library - no dependencies on databases, AI services, or networking tools
 
 ## Common Patterns
 

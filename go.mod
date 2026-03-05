@@ -8,7 +8,6 @@ require (
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/zerolog v1.33.0
-	github.com/sashabaranov/go-openai v1.30.0
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.4
 	golang.org/x/mod v0.20.0
