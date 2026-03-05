@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	codesurgeon "github.com/wricardo/code-surgeon"
+	codesurgeon "github.com/wricardo/go2json"
 )
 
 type INode interface {

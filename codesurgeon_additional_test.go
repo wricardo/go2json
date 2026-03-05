@@ -373,14 +373,14 @@ func TestIsTestFunction(t *testing.T) {
 	}{
 		{"TestFoo", true},
 		{"TestA", true},
-		{"Test", false},          // "Test" alone is not a test function (len <= 4)
-		{"Testfoo", false},       // lowercase after Test
+		{"Test", false},    // "Test" alone is not a test function (len <= 4)
+		{"Testfoo", false}, // lowercase after Test
 		{"TestFooBar", true},
 		{"NotATest", false},
 		{"", false},
-		{"Testing", false},       // 'i' at position 4 is lowercase
-		{"TestÜber", false},      // multi-byte char, byte comparison fails
-		{"BenchmarkFoo", false},  // not a test function
+		{"Testing", false},      // 'i' at position 4 is lowercase
+		{"TestÜber", false},     // multi-byte char, byte comparison fails
+		{"BenchmarkFoo", false}, // not a test function
 	}
 
 	for _, tt := range tests {
@@ -397,8 +397,8 @@ func TestIsBenchmarkFunction(t *testing.T) {
 	}{
 		{"BenchmarkFoo", true},
 		{"BenchmarkA", true},
-		{"Benchmark", false},      // len <= 9
-		{"Benchmarkfoo", false},   // lowercase after Benchmark
+		{"Benchmark", false},    // len <= 9
+		{"Benchmarkfoo", false}, // lowercase after Benchmark
 		{"BenchmarkFooBar", true},
 		{"NotABenchmark", false},
 		{"", false},

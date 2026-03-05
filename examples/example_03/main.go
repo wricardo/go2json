@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	codesurgeon "github.com/wricardo/code-surgeon"
+	codesurgeon "github.com/wricardo/go2json"
 )
 
 func main() {

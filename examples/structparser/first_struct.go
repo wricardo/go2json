@@ -3,7 +3,7 @@ package structs
 import (
 	"context"
 
-	"github.com/wricardo/code-surgeon/examples/structparser/other"
+	"github.com/wricardo/go2json/examples/structparser/other"
 )
 
 // this is here just test that we don't care about it, just structs

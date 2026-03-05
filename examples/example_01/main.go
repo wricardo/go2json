@@ -1,7 +1,7 @@
 package main
 
 import (
-	codesurgeon "github.com/wricardo/code-surgeon"
+	codesurgeon "github.com/wricardo/go2json"
 )
 
 func main() {

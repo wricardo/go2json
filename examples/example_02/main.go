@@ -1,115 +1,35 @@
 package main
 
 import (
-	"bufio"
-	"context"
 	"fmt"
 	"log"
-	"os"
-	"regexp"
-	"strings"
 
-	"github.com/sashabaranov/go-openai"
-	codesurgeon "github.com/wricardo/code-surgeon"
-	"github.com/wricardo/code-surgeon/ai"
+	g2j "github.com/wricardo/go2json"
 )
 
 func main() {
-	request := getUserRequest()
+	fmt.Println("Example 02: Parse directory recursively and output as JSON")
 
-	fmt.Println("AI Software Engineer response:")
-	fileContent, err := readFileContents("dynamic.go")
+	// Parse the current directory recursively
+	parsed, err := g2j.ParseDirectoryRecursive(".")
 	if err != nil {
-		log.Fatalf("Failed to read file: %v", err)
-	}
-	implementationsMap := analyzeRequest(fileContent, request)
-	fmt.Println(implementationsMap)
-
-	codesurgeon.InsertCodeFragments(implementationsMap)
-}
-
-// Simulate the AI analysis and response
-func analyzeRequest(fileContents, request string) map[string][]codesurgeon.CodeFragment {
-
-	type AIOutput struct {
-		Output string `json:"output" jsonschema:"title=output,description=the assistant's response to the user."`
+		log.Fatalf("Failed to parse directory: %v", err)
 	}
 
-	var aiOutput AIOutput
-	inst := ai.GetInstructor()
-	_, err := inst.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
-		Model: openai.GPT3Dot5Turbo,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: fileContents,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: request,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: "write only the golang function without any package or import. Just the code block with the golang function. write the output to json object key 'output'",
-			},
-		},
-	}, &aiOutput)
-
-	if err != nil {
-		log.Fatalf("Failed to get response from OpenAI: %v", err)
-	}
-
-	fn := func(str string) codesurgeon.CodeFragment {
-		str = extractCodeBlock(str, "go")
-		return codesurgeon.CodeFragment{Content: str}
-	}
-
-	// Process the AI response to map it into the fragments
-	// For this example, we'll just use the response directly
-	return map[string][]codesurgeon.CodeFragment{
-		"dynamic.go": {
-			fn(aiOutput.Output),
-		},
-	}
-}
-
-// Get user input for request
-func getUserRequest() string {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Please enter your modification request: ")
-	request, _ := reader.ReadString('\n')
-	return strings.TrimSpace(request)
-}
-
-func readFileContents(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	var builder strings.Builder
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		builder.WriteString(scanner.Text() + "\n")
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
-}
-
-// extractCodeBlock extracts the content of a code block with the specified language identifier (like "xyz").
-func extractCodeBlock(input, language string) string {
-	// Regular expression pattern to match the code block with the specified language
-	pattern := fmt.Sprintf("(?s)```%s\\s*(.*?)\\s*```", regexp.QuoteMeta(language))
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(input)
-	if len(matches) > 1 {
-		// Return the captured content inside the code block
-		return matches[1]
-	}
-	return ""
+	// Print the results in JSON format
+	output := g2j.PrettyPrint(
+		parsed,
+		"json",                    // format
+		nil,                       // ignore rules
+		true,                      // plain-structs
+		true,                      // fields-plain-structs
+		true,                      // structs-with-method
+		true,                      // fields-structs-with-method
+		true,                      // methods
+		true,                      // functions
+		true,                      // tags
+		true,                      // comments
+		false,                     // omit-nulls
+	)
+	fmt.Println(output)
 }

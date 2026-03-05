@@ -1,7 +1,10 @@
 .env
 .vscode
+.claude/settings.local.json
 *.log
 .aider*
 chats.json
 *__debug_*
 bin/*
+coverage.out
+/go2json

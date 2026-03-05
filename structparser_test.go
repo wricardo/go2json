@@ -412,7 +412,7 @@ func TestParseDirectory(t *testing.T) {
 			}
 
 			require.True(t, hasImport(tmp.Packages[0].Imports, "context"))
-			require.True(t, hasImport(tmp.Packages[0].Imports, "github.com/wricardo/code-surgeon/examples/structparser/other"))
+			require.True(t, hasImport(tmp.Packages[0].Imports, "github.com/wricardo/go2json/examples/structparser/other"))
 			require.True(t, hasImport(tmp.Packages[0].Imports, "time"))
 		})
 	}
