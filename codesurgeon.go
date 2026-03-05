@@ -229,10 +229,6 @@ func upsertDeclaration(file *ast.File, newDecl ast.Decl, overwrite bool) {
 			}
 
 			if existing.Name.Name == newFunc.Name.Name {
-				// fmt.Printf("newDecl\n%s", spew.Sdump(newDecl))   // TODO: wallace debug
-				// fmt.Printf("existing\n%s", spew.Sdump(existing)) // TODO: wallace debug
-				// fmt.Printf("newFunc\n%s", spew.Sdump(newFunc))   // TODO: wallace debug
-
 				existingRecv := getReceiverType(existing)
 				newRecv := getReceiverType(newFunc)
 				if existingRecv == newRecv {
@@ -421,24 +417,6 @@ func findFunctionInFile(filePath, receiver, functionName string) (bool, error) {
 	return false, nil
 }
 
-// writeFile writes the given content to the specified file path.
-// If the file does not exist, it creates a new one. If it exists, it overwrites the file.
-func writeFile(filePath, content string) error {
-	// Create or open the file with write permissions.
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	// Write content to the file.
-	_, err = file.WriteString(content)
-	if err != nil {
-		return fmt.Errorf("failed to write content to file: %w", err)
-	}
-
-	return nil
-}
 
 type GoList struct {
 	Dir         string       `json:"Dir"`

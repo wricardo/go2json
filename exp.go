@@ -142,8 +142,7 @@ func parseFunctionDecl(funcDecl *ast.FuncDecl, docs string, pkg Package) (Functi
 
 						PtrFunc: &function,
 					}
-					// p.FillTypeDetails()
-					params = append(params, *p)
+						params = append(params, *p)
 
 				}
 			} else {
@@ -153,7 +152,6 @@ func parseFunctionDecl(funcDecl *ast.FuncDecl, docs string, pkg Package) (Functi
 					TypeDetails: *paramType,
 					PtrFunc:     &function,
 				}
-				// p.FillTypeDetails()
 				params = append(params, *p)
 			}
 		}
@@ -278,8 +276,7 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 						PtrMethod: &method,
 					}
-					// p.FillTypeDetails()
-					params = append(params, *p)
+						params = append(params, *p)
 
 				}
 			} else {
@@ -290,7 +287,6 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 					PtrMethod: &method,
 				}
-				// p.FillTypeDetails()
 				params = append(params, *p)
 			}
 		}
@@ -315,8 +311,7 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 						PtrMethod: &method,
 					}
-					// p.FillTypeDetails()
-					returns = append(returns, *p)
+						returns = append(returns, *p)
 				}
 			} else {
 				p := &Param{
@@ -326,7 +321,6 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 					PtrMethod: &method,
 				}
-				// p.FillTypeDetails()
 				returns = append(returns, *p)
 			}
 		}

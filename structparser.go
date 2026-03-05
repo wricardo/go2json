@@ -131,11 +131,6 @@ type Param struct {
 	PtrFunc   *Function `json:"-"` // Pointer to the function that this parameter belongs to
 }
 
-// func (p *Param) FillTypeDetails() {
-// 	td := GetTypeDetails(p.Type, nil, nil)
-// 	p.TypeDetails = td
-// }
-
 // Field represents a field in a Go struct.
 type Field struct {
 	Name        string      `json:"name"`
@@ -211,17 +206,6 @@ func ParseString(fileContent string) (*ParsedInfo, error) {
 	}
 
 	return extractParsedInfo(packages, "", "")
-}
-
-func augment(m map[string]interface{}, n map[string]interface{}) map[string]interface{} {
-	copy_ := make(map[string]interface{}, len(m)+len(n))
-	for k, v := range m {
-		copy_[k] = v
-	}
-	for k, v := range n {
-		copy_[k] = v
-	}
-	return copy_
 }
 
 // ParseDirectoryRecursive parses a directory recursively and returns the parsed information.
@@ -716,20 +700,6 @@ func exprToString(expr ast.Expr) string {
 	return buf.String()
 }
 
-func exprToStringoriginal(expr ast.Expr) string {
-	switch e := expr.(type) {
-	case *ast.BasicLit:
-		return e.Value
-	case *ast.Ident:
-		return e.Name
-	case *ast.BinaryExpr:
-		return exprToString(e.X) + " " + e.Op.String() + " " + exprToString(e.Y)
-	case *ast.CallExpr:
-		return fmt.Sprintf("%s(%s)", exprToString(e.Fun), exprToString(e.Args[0]))
-		// Add more cases as needed
-	}
-	return ""
-}
 
 func getDocsForStruct(doc string) []string {
 	trimmed := strings.Trim(doc, "\n")
@@ -793,8 +763,6 @@ func cleanDocText(doc string) string {
 	}
 	return strings.Trim(strings.Trim(doc, " "), "\n")
 }
-
-func void(_ ...interface{}) {}
 
 // resolveFullImportPath resolves a short package name to its full import path
 // by looking through the package's imports list.
