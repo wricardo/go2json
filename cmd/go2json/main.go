@@ -3,13 +3,18 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/urfave/cli/v2"
 
 	g2j "github.com/wricardo/go2json"
 )
+
+//go:embed skills/go2json/SKILL.md
+var skillFS embed.FS
 
 func main() {
 	app := &cli.App{
@@ -162,6 +167,34 @@ func main() {
 						os.Exit(1)
 					}
 					fmt.Println(g2j.PrettyPrint(result, cCtx.String("format"), nil, true, true, true, true, true, true, true, false, cCtx.Bool("omit-nulls")))
+					return nil
+				},
+			},
+			{
+				Name:  "install-skill",
+				Usage: "install the go2json Claude Code skill to ~/.claude/skills/go2json/",
+				Action: func(cCtx *cli.Context) error {
+					homeDir, err := os.UserHomeDir()
+					if err != nil {
+						return fmt.Errorf("could not determine home directory: %w", err)
+					}
+
+					destDir := filepath.Join(homeDir, ".claude", "skills", "go2json")
+					if err := os.MkdirAll(destDir, 0755); err != nil {
+						return fmt.Errorf("could not create directory %s: %w", destDir, err)
+					}
+
+					data, err := skillFS.ReadFile("skills/go2json/SKILL.md")
+					if err != nil {
+						return fmt.Errorf("could not read embedded skill file: %w", err)
+					}
+
+					destPath := filepath.Join(destDir, "SKILL.md")
+					if err := os.WriteFile(destPath, data, 0644); err != nil {
+						return fmt.Errorf("could not write skill file: %w", err)
+					}
+
+					fmt.Printf("Installed go2json skill to %s\n", destPath)
 					return nil
 				},
 			},
