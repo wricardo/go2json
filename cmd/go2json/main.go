@@ -6,15 +6,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
 
 	g2j "github.com/wricardo/go2json"
 )
 
 func main() {
-	_, _ = godotenv.Read()
-
 	app := &cli.App{
 		Name:  "go2json",
 		Usage: "A CLI tool to parse and analyze Go code",

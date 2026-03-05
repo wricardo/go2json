@@ -8,7 +8,6 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/rs/zerolog/log"
 
 	"github.com/stretchr/testify/require"
 )
@@ -588,7 +587,6 @@ func getMapStructsFieldsType(content string) map[string]map[string]string {
 	structs := make(map[string]map[string]string)
 	parsed, err := ParseString(content)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse code")
 	}
 
 	for _, s := range parsed.Packages[0].Structs {

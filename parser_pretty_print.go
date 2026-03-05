@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Knetic/govaluate"
-	"github.com/rs/zerolog/log"
 )
 
 // omitNullsFromJSON recursively removes null and empty values from JSON data
@@ -316,7 +315,6 @@ func shouldIgnorePosition(p *ParsedInfo, ignoreRules []string, posType string) b
 	for _, ignore := range ignoreRules {
 		expression, err := govaluate.NewEvaluableExpression(ignore)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse ignore rule")
 			continue
 		}
 		parameters := map[string]interface{}{posType: posValue}
@@ -420,12 +418,10 @@ func shouldIgnoreStruct(s Struct, pkgName string, ignoreRules []string) bool {
 	for _, ignore := range ignoreRules {
 		expression, err := govaluate.NewEvaluableExpression(ignore)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse ignore rule")
 			continue
 		}
 		result, _ := expression.Evaluate(structParams)
 		if result == true {
-			log.Trace().Str("rule", ignore).Msgf("Ignoring struct %s", s.Name)
 			return true
 		}
 	}
@@ -466,12 +462,10 @@ func shouldIgnoreField(f Field, ignoreRules []string) bool {
 	for _, ignore := range ignoreRules {
 		expression, err := govaluate.NewEvaluableExpression(ignore)
 		if err != nil {
-			log.Warn().Str("rule", ignore).Err(err).Msg("Failed to parse ignore rule")
 			continue
 		}
 		result, _ := expression.Evaluate(fieldParams)
 		if result == true {
-			log.Trace().Str("rule", ignore).Msgf("Ignoring field %s", f.Name)
 			return true
 		}
 	}
@@ -503,12 +497,10 @@ func shouldIgnoreMethod(m Method, ignoreRules []string) bool {
 	for _, ignore := range ignoreRules {
 		expression, err := govaluate.NewEvaluableExpression(ignore)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse ignore rule")
 			continue
 		}
 		result, _ := expression.Evaluate(methodParams)
 		if result == true {
-			log.Trace().Str("rule", ignore).Msgf("Ignoring method %s", m.Name)
 			return true
 		}
 	}
@@ -540,12 +532,10 @@ func shouldIgnoreFunction(f Function, ignoreRules []string) bool {
 	for _, ignore := range ignoreRules {
 		expression, err := govaluate.NewEvaluableExpression(ignore)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to parse ignore rule")
 			continue
 		}
 		result, _ := expression.Evaluate(funcParams)
 		if result == true {
-			log.Trace().Str("rule", ignore).Msgf("Ignoring function %s", f.Name)
 			return true
 		}
 	}
