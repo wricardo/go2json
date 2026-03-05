@@ -43,8 +43,21 @@ type Package struct {
 	Variables  []Variable  `json:"variables,omitempty"`
 	Constants  []Constant  `json:"constants,omitempty"`
 	Interfaces []Interface `json:"interfaces,omitempty"`
+	TypeDefs   []TypeDef   `json:"type_defs,omitempty"`
 
 	PtrModule *Module `json:"-"` // Pointer to the module that this package belongs to
+}
+
+// TypeDef represents a named type declaration that is neither a struct nor an interface
+// (e.g., "type SomeFunc func(a string) error" or "type SpecialString string").
+type TypeDef struct {
+	Name       string   `json:"name"`
+	Underlying string   `json:"underlying"`            // The underlying type expression as a string
+	Docs       []string `json:"docs,omitempty"`
+	Definition string   `json:"definition,omitempty"`   // Full Go code definition
+	IsExported bool     `json:"is_exported"`
+
+	PtrPackage *Package `json:"-"`
 }
 
 type Import struct {
@@ -533,6 +546,42 @@ func extractInterfaces(docPkg *doc.Package, pkg Package) ([]Interface, error) {
 		}
 	}
 	return interfaces, nil
+}
+
+// extractTypeDefs extracts named type declarations that are neither structs nor interfaces.
+func extractTypeDefs(docPkg *doc.Package, pkg Package) ([]TypeDef, error) {
+	var typeDefs []TypeDef
+	for _, t := range docPkg.Types {
+		if t == nil || t.Decl == nil {
+			continue
+		}
+		for _, spec := range t.Decl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			// Skip structs and interfaces — they're handled elsewhere
+			if _, isStruct := typeSpec.Type.(*ast.StructType); isStruct {
+				continue
+			}
+			if _, isIface := typeSpec.Type.(*ast.InterfaceType); isIface {
+				continue
+			}
+
+			underlying := exprToString(typeSpec.Type)
+			def := fmt.Sprintf("type %s %s", t.Name, underlying)
+
+			typeDefs = append(typeDefs, TypeDef{
+				Name:       t.Name,
+				Underlying: underlying,
+				Docs:       getDocsForStruct(t.Doc),
+				Definition: def,
+				IsExported: ast.IsExported(t.Name),
+				PtrPackage: &pkg,
+			})
+		}
+	}
+	return typeDefs, nil
 }
 
 // extractImports extracts unique imports from the provided package.

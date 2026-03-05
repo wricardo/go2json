@@ -54,11 +54,11 @@ func PrettyPrint(
 	var sb strings.Builder
 
 	switch mode {
-	case "json":
+	case "json", "":
 		return prettyPrintJSON(parsed, omitNulls)
 	case "grepindex":
 		return prettyPrintGrepIndex(parsed, ignoreRules, &sb)
-	case "llm", "":
+	case "llm":
 		return prettyPrintLLM(parsed, ignoreRules, plainStructs, fieldsPlainStructs, structsWithMethod, fieldsStructsWithMethod, methods, functions, comments, &sb)
 	default:
 		return "Invalid mode: " + mode
@@ -125,57 +125,197 @@ func prettyPrintLLM(
 		if len(p.Packages) == 0 {
 			continue
 		}
-		printPosition(p, sb)
 		for _, pkg := range p.Packages {
-			fmt.Fprintf(sb, "Package: %s\n", pkg.Package)
+			if p.File != "" {
+				fmt.Fprintf(sb, "// file: %s\n", p.File)
+			} else if p.Directory != "" {
+				fmt.Fprintf(sb, "// directory: %s\n", p.Directory)
+			}
+			if pkg.Package != "" {
+				fmt.Fprintf(sb, "package %s\n", pkg.Package)
+			}
+
 			for _, s := range pkg.Structs {
 				if shouldIgnoreStruct(s, pkg.Package, ignoreRules) || !shouldIncludeStruct(s, plainStructs, structsWithMethod) {
 					continue
 				}
-				fmt.Fprintf(sb, "  Struct: %s\n", s.Name)
 				if comments && len(s.Docs) > 0 {
-					fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(s.Docs, "\n"))
-				}
-				if fieldsStructsWithMethod || fieldsPlainStructs {
-					printFields(s.Fields, ignoreRules, sb, comments)
-				}
-				if methods && len(s.Methods) > 0 {
-					printMethods(s.Methods, ignoreRules, sb)
-				}
-			}
-			if functions && len(pkg.Functions) > 0 {
-				printFunctions(pkg.Functions, ignoreRules, sb)
-			}
-			// interfaces
-			for _, i := range pkg.Interfaces {
-				fmt.Fprintf(sb, "  Interface: %s\n", i.Name)
-				if comments && len(i.Docs) > 0 {
-					fmt.Fprintf(sb, "    Comment: %s\n", strings.Join(i.Docs, "\n"))
-				}
-				for _, m := range i.Methods {
-					fmt.Fprintf(sb, "    Method: %s\n", m.Name)
-					if comments && len(m.Docs) > 0 {
-						fmt.Fprintf(sb, "      Comment: %s\n", strings.Join(m.Docs, "\n"))
-					}
-					for _, p := range m.Params {
-						fmt.Fprintf(sb, "      Param: %s (%s)\n", p.Name, p.Type)
+					for _, d := range s.Docs {
+						fmt.Fprintf(sb, "// %s\n", d)
 					}
 				}
-			}
-			// variables
-			for _, v := range pkg.Variables {
-				fmt.Fprintf(sb, "  Variable: %s (%s)\n", v.Name, v.Type)
+				hasFields := (fieldsStructsWithMethod && len(s.Methods) > 0) || (fieldsPlainStructs && len(s.Methods) == 0)
+				hasMethods := methods && len(s.Methods) > 0
+				filteredFields := filterFields(s.Fields, ignoreRules)
+				filteredMethods := filterMethods(s.Methods, ignoreRules)
+				if !hasFields {
+					filteredFields = nil
+				}
+				if !hasMethods {
+					filteredMethods = nil
+				}
+				if len(filteredFields) == 0 && len(filteredMethods) == 0 {
+					fmt.Fprintf(sb, "type %s struct{}\n", s.Name)
+					continue
+				}
+				fmt.Fprintf(sb, "type %s struct{\n", s.Name)
+				printFieldsToon(filteredFields, sb)
+				printMethodsToon(filteredMethods, sb)
+				sb.WriteString("}\n")
 			}
 
-			// constants
-			for _, c := range pkg.Constants {
-				fmt.Fprintf(sb, "  Constant: %s\n", c.Name)
+			for _, iface := range pkg.Interfaces {
+				if comments && len(iface.Docs) > 0 {
+					for _, d := range iface.Docs {
+						fmt.Fprintf(sb, "// %s\n", d)
+					}
+				}
+				if len(iface.Methods) == 0 {
+					fmt.Fprintf(sb, "type %s interface{}\n", iface.Name)
+				} else {
+					fmt.Fprintf(sb, "type %s interface{\n", iface.Name)
+					for _, m := range iface.Methods {
+						fmt.Fprintf(sb, "%s\n", m.Signature)
+					}
+					sb.WriteString("}\n")
+				}
 			}
+
+			for _, td := range pkg.TypeDefs {
+				if comments && len(td.Docs) > 0 {
+					for _, d := range td.Docs {
+						fmt.Fprintf(sb, "// %s\n", d)
+					}
+				}
+				fmt.Fprintf(sb, "%s\n", td.Definition)
+			}
+
+			if functions {
+				for _, f := range pkg.Functions {
+					if shouldIgnoreFunction(f, ignoreRules) {
+						continue
+					}
+					if comments && len(f.Docs) > 0 {
+						for _, d := range f.Docs {
+							fmt.Fprintf(sb, "// %s\n", d)
+						}
+					}
+					fmt.Fprintf(sb, "%s\n", f.Definition)
+				}
+			}
+
+			printVarsToon(pkg.Variables, comments, sb)
+			printConstsToon(pkg.Constants, comments, sb)
 		}
 	}
 	return sb.String()
 }
 
+// filterFields returns fields that pass ignore rules.
+func filterFields(fields []Field, ignoreRules []string) []Field {
+	var result []Field
+	for _, f := range fields {
+		if !shouldIgnoreField(f, ignoreRules) {
+			result = append(result, f)
+		}
+	}
+	return result
+}
+
+// filterMethods returns methods that pass ignore rules.
+func filterMethods(methods []Method, ignoreRules []string) []Method {
+	var result []Method
+	for _, m := range methods {
+		if !shouldIgnoreMethod(m, ignoreRules) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+// fieldGroup represents a group of consecutive fields sharing the same type.
+type fieldGroup struct {
+	names []string
+	typ   string
+}
+
+// printFieldsToon prints struct fields in Go syntax with consecutive same-type grouping and alignment.
+func printFieldsToon(fields []Field, sb *strings.Builder) {
+	if len(fields) == 0 {
+		return
+	}
+
+	// Group consecutive fields with the same type
+	var groups []fieldGroup
+	current := fieldGroup{names: []string{fields[0].Name}, typ: fields[0].Type}
+	for i := 1; i < len(fields); i++ {
+		if fields[i].Type == current.typ {
+			current.names = append(current.names, fields[i].Name)
+		} else {
+			groups = append(groups, current)
+			current = fieldGroup{names: []string{fields[i].Name}, typ: fields[i].Type}
+		}
+	}
+	groups = append(groups, current)
+
+	for _, g := range groups {
+		fmt.Fprintf(sb, "%s %s\n", strings.Join(g.names, ","), g.typ)
+	}
+}
+
+// printMethodsToon prints methods inside a struct block using toon format.
+func printMethodsToon(methods []Method, sb *strings.Builder) {
+	for _, m := range methods {
+		prefix := ""
+		if strings.HasPrefix(m.Receiver, "*") {
+			prefix = "*"
+		}
+		fmt.Fprintf(sb, "%s%s\n", prefix, m.Signature)
+	}
+}
+
+func printVarsToon(vars []Variable, comments bool, sb *strings.Builder) {
+	// Group consecutive variables with same type
+	type varGroup struct {
+		names []string
+		typ   string
+		docs  [][]string
+	}
+	var groups []varGroup
+	for _, v := range vars {
+		if len(groups) > 0 && groups[len(groups)-1].typ == v.Type {
+			groups[len(groups)-1].names = append(groups[len(groups)-1].names, v.Name)
+			groups[len(groups)-1].docs = append(groups[len(groups)-1].docs, v.Docs)
+		} else {
+			groups = append(groups, varGroup{names: []string{v.Name}, typ: v.Type, docs: [][]string{v.Docs}})
+		}
+	}
+	for _, g := range groups {
+		if comments {
+			for _, docs := range g.docs {
+				for _, d := range docs {
+					fmt.Fprintf(sb, "// %s\n", d)
+				}
+			}
+		}
+		fmt.Fprintf(sb, "var %s %s\n", strings.Join(g.names, ", "), g.typ)
+	}
+}
+
+func printConstsToon(consts []Constant, comments bool, sb *strings.Builder) {
+	for _, c := range consts {
+		if comments && len(c.Docs) > 0 {
+			for _, d := range c.Docs {
+				fmt.Fprintf(sb, "// %s\n", d)
+			}
+		}
+		if c.Value != "" {
+			fmt.Fprintf(sb, "const %s = %s\n", c.Name, c.Value)
+		} else {
+			fmt.Fprintf(sb, "const %s\n", c.Name)
+		}
+	}
+}
 
 // Helper Functions
 
@@ -279,14 +419,6 @@ func processInterfacesForGrepIndex(pkg Package, pkg_ string, sb *strings.Builder
 	}
 }
 
-func printPosition(p *ParsedInfo, sb *strings.Builder) {
-	if p.Directory != "" {
-		fmt.Fprintf(sb, "Directory: %s\n", p.Directory)
-	} else if p.File != "" {
-		fmt.Fprintf(sb, "File: %s\n", p.File)
-	}
-}
-
 func shouldIgnoreStruct(s Struct, pkgName string, ignoreRules []string) bool {
 	if len(ignoreRules) == 0 {
 		return false
@@ -320,19 +452,6 @@ func shouldIncludeStruct(s Struct, plainStructs, structsWithMethod bool) bool {
 	return true
 }
 
-func printFields(fields []Field, ignoreRules []string, sb *strings.Builder, comments bool) {
-	var fieldNames []string
-	for _, f := range fields {
-		if shouldIgnoreField(f, ignoreRules) {
-			continue
-		}
-		fieldNames = append(fieldNames, fmt.Sprintf("%s (%s)", f.Name, f.Type))
-	}
-	if len(fieldNames) > 0 {
-		fmt.Fprintf(sb, "    %s\n", strings.Join(fieldNames, ", "))
-	}
-}
-
 func shouldIgnoreField(f Field, ignoreRules []string) bool {
 	if len(ignoreRules) == 0 {
 		return false
@@ -352,19 +471,6 @@ func shouldIgnoreField(f Field, ignoreRules []string) bool {
 		}
 	}
 	return false
-}
-
-func printMethods(methods []Method, ignoreRules []string, sb *strings.Builder) {
-	var methodNamesAndSig []string
-	for _, m := range methods {
-		if shouldIgnoreMethod(m, ignoreRules) {
-			continue
-		}
-		methodNamesAndSig = append(methodNamesAndSig, m.Signature)
-	}
-	if len(methodNamesAndSig) > 0 {
-		fmt.Fprintf(sb, "    Methods: %s\n", strings.Join(methodNamesAndSig, ", "))
-	}
 }
 
 func shouldIgnoreMethod(m Method, ignoreRules []string) bool {
@@ -387,19 +493,6 @@ func shouldIgnoreMethod(m Method, ignoreRules []string) bool {
 		}
 	}
 	return false
-}
-
-func printFunctions(functions []Function, ignoreRules []string, sb *strings.Builder) {
-	var funcNames []string
-	for _, f := range functions {
-		if shouldIgnoreFunction(f, ignoreRules) {
-			continue
-		}
-		funcNames = append(funcNames, f.Name)
-	}
-	if len(funcNames) > 0 {
-		fmt.Fprintf(sb, "  Functions: %s\n", strings.Join(funcNames, ", "))
-	}
 }
 
 func shouldIgnoreFunction(f Function, ignoreRules []string) bool {

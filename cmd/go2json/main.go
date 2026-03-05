@@ -39,8 +39,8 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "format",
-						Value: "llm",
-						Usage: "format to print the parsed information: llm, json, or grepindex",
+						Value: "json",
+						Usage: "format to print the parsed information: json, llm (Go-syntax), or grepindex",
 					},
 					&cli.BoolFlag{
 						Name:  "omit-nulls",
@@ -80,7 +80,7 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "comments",
 						Usage: "print comments",
-						Value: true,
+						Value: false,
 					},
 					&cli.BoolFlag{
 						Name:  "tags",
@@ -112,6 +112,56 @@ func main() {
 						}
 						fmt.Println(g2j.PrettyPrint([]*g2j.ParsedInfo{parsed}, cCtx.String("format"), ignores, cCtx.Bool("plain-structs"), cCtx.Bool("fields-plain-structs"), cCtx.Bool("structs-with-method"), cCtx.Bool("fields-structs-with-method"), cCtx.Bool("methods"), cCtx.Bool("functions"), cCtx.Bool("tags"), cCtx.Bool("comments"), cCtx.Bool("omit-nulls")))
 					}
+					return nil
+				},
+			},
+			{
+				Name:    "describe",
+				Aliases: []string{"d"},
+				Usage:   "describe a type and its dependencies",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "type",
+						Aliases:  []string{"t"},
+						Usage:    "the type name to describe",
+						Required: true,
+					},
+					&cli.StringFlag{
+						Name:    "path",
+						Aliases: []string{"f"},
+						Usage:   "path to the directory to parse",
+						Value:   ".",
+					},
+					&cli.IntFlag{
+						Name:    "depth",
+						Aliases: []string{"n"},
+						Usage:   "max depth of type dependency traversal",
+						Value:   1,
+					},
+					&cli.StringFlag{
+						Name:  "format",
+						Usage: "output format: llm, json, grepindex",
+						Value: "llm",
+					},
+					&cli.BoolFlag{
+						Name:  "omit-nulls",
+						Usage: "omit null and empty values from JSON output",
+						Value: false,
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					path := cCtx.String("path")
+					parsed, err := g2j.ParseDirectoryRecursive(path)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to parse directory: %v\n", err)
+						os.Exit(1)
+					}
+					result, err := g2j.DescribeType(cCtx.String("type"), parsed, cCtx.Int("depth"))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+						os.Exit(1)
+					}
+					fmt.Println(g2j.PrettyPrint(result, cCtx.String("format"), nil, true, true, true, true, true, true, true, false, cCtx.Bool("omit-nulls")))
 					return nil
 				},
 			},

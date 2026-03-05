@@ -39,6 +39,7 @@ func extractParsedInfo(packages map[string]*ast.Package, moduleName string, relM
 			Variables: make([]Variable, 0),
 			Constants: make([]Constant, 0),
 			Imports:   make([]Import, 0),
+			TypeDefs:  make([]TypeDef, 0),
 		}
 
 		docPkg := doc.New(pkg, "", doc.AllDecls|doc.AllMethods|doc.PreserveAST)
@@ -63,6 +64,12 @@ func extractParsedInfo(packages map[string]*ast.Package, moduleName string, relM
 			return nil, err
 		}
 		outPkg.Interfaces = append(outPkg.Interfaces, interfaces...)
+
+		typeDefs, err := extractTypeDefs(docPkg, outPkg)
+		if err != nil {
+			return nil, err
+		}
+		outPkg.TypeDefs = append(outPkg.TypeDefs, typeDefs...)
 
 		// Build a map of structs for easy lookup
 		structMap := make(map[string]*Struct)

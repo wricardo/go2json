@@ -1,89 +1,95 @@
 # go2json
 
-go2json is:
-- a library for parsing and analyzing Go code
-- a command line tool to parse and inspect Go code
-- a stack trace analysis library for Go function parsing
+A Go code parser that outputs structured JSON (or compact Go-syntax) for every struct, function, method, interface, variable, and constant in a package.
 
-## Installation
+The JSON output is machine-readable, so you can pipe it into scripts or AI tools. For example, an LLM can iterate over every function in a package to generate tests, find which handlers match a route pattern, or build a dependency graph — without parsing Go itself.
+
+## Install
 
 ```bash
-go build ./cmd/go2json
+go install github.com/wricardo/go2json/cmd/go2json@latest
+```
+
+Or build from source:
+
+```bash
+go build -o go2json ./cmd/go2json
 ```
 
 ## Usage
 
-### Parse a directory
-
 ```bash
-./go2json parse --path . --recursive --format json
+# Parse current directory (JSON output, default)
+go2json parse --path .
+
+# Parse recursively
+go2json parse --path . --recursive
+
+# Compact Go-syntax output (optimized for LLMs)
+go2json parse --path . --format llm
+
+# With comments enabled
+go2json parse --path . --format llm --comments
+
+# Ignore test files
+go2json parse --path . --recursive --ignore-rule "*_test.go"
 ```
 
-### Parse a single file
+## Output Formats
 
-```bash
-./go2json parse --path main.go --format llm
-```
+- `json` (default) - structured JSON
+- `llm` - compact Go-syntax format with same-type field grouping, no indentation, no comments by default
+- `grepindex` - grep-friendly index format
 
-### Available Formats
-
-- `llm` - Human-readable format optimized for LLM analysis (default)
-- `json` - JSON format for programmatic processing
-- `text_short` - Compact text format
-- `text_long` - Detailed text format
-
-### Help
-
-```bash
-./go2json parse --help
-```
-
-## Setup
-
-### Environment Variables (Optional)
-
-For AI features, create a `.env` file:
+### LLM Format Example
 
 ```
-OPENAI_API_KEY=sk-...
+// directory: ./mypackage
+package mypackage
+type Config struct{
+Host,Port,Path string
+Timeout int
+Debug,Verbose bool
+*Validate() error
+*Apply(ctx context.Context) error
+}
+func NewConfig(host string,port int) *Config
+var DefaultConfig Config
+const MaxRetries = 3
 ```
 
-## Dependencies
+Fields with the same type are grouped (`Host,Port,Path string`). Methods are nested inside their struct with `*` for pointer receivers. No alignment padding, no indentation — minimal tokens.
+
+## Flags
+
+```
+--path, -f          path to parse (default: ".")
+--recursive, -r     recurse into subdirectories
+--format            json, llm, or grepindex (default: "json")
+--comments          include doc comments (default: false)
+--plain-structs     include structs without methods (default: true)
+--structs-with-method  include structs with methods (default: true)
+--fields-plain-structs  include fields of plain structs (default: true)
+--fields-structs-with-method  include fields of structs with methods (default: true)
+--methods           include methods (default: true)
+--functions         include functions (default: true)
+--tags              include struct tags (default: true)
+--omit-nulls        omit null/empty values from JSON (default: false)
+--ignore-rule       expression to ignore files/structs/fields
+```
+
+## Library Usage
+
+```go
+import g2j "github.com/wricardo/go2json"
+
+parsed, err := g2j.ParseDirectoryRecursive("./mypackage")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(g2j.PrettyPrint(parsed, "llm", nil, true, true, true, true, true, true, true, false, false))
+```
+
+## Requirements
 
 - Go 1.24.0+
-- `golang.org/x/tools` - For Go AST analysis
-- `github.com/urfave/cli/v2` - For CLI framework
-
-## Examples
-
-See the `examples/` directory for code generation and analysis examples:
-
-- `example_01/` - Basic code generation
-- `example_02/` - Request-based code analysis
-- `example_03/` - File change application
-- `example_04/` - Template-based code generation
-
-Run examples:
-
-```bash
-cd examples/example_01
-go run main.go
-```
-
-## Architecture
-
-The tool consists of:
-
-1. **AST Parser** (`structparser.go`) - Parses Go code into structured data
-2. **Pretty Printer** (`parser_pretty_print.go`) - Formats parsed data in various output formats
-3. **Code Surgeon** (`codesurgeon.go`) - Utilities for code generation and manipulation
-4. **CLI** (`cmd/go2json/`) - Command-line interface
-
-## Features
-
-- **Recursive Parsing** - Analyzes entire directory trees
-- **Selective Output** - Choose what to include (structs, functions, methods, comments, etc.)
-- **Multiple Formats** - JSON, text, LLM-optimized formats
-- **Ignore Patterns** - Skip test files, vendor directories, etc.
-- **Code Generation** - Insert or modify code fragments in existing files
-- **Template Support** - Generate code from Go templates

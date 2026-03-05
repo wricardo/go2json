@@ -1,43 +1,257 @@
-File: /Users/wricardo/go/src/github.com/wricardo/go2json/structparser.go
-Package: codesurgeon
-  Struct: Constant
-    Comment: Constant represents a constant in a Go package.
-    Name (string), Value (string), Docs ([]string)
-  Struct: Field
-    Comment: Field represents a field in a Go struct.
-    Name (string), Type (string), TypeDetails (TypeDetails), Tag (string), Private (bool), Pointer (bool), Slice (bool), Docs ([]string), Comment (string), PtrStruct (*Struct)
-  Struct: Function
-    Comment: Function represents a Go function with its parameters, return types, and documentation.
-    Name (string), Params ([]Param), Returns ([]Param), Docs ([]string), Signature (string), Body (string), Definition (string), IsExported (bool), IsTest (bool), IsBenchmark (bool)
-  Struct: Import
-    Name (string), Path (string), PtrPackage (*Package)
-  Struct: Interface
-    Comment: Interface represents a Go interface and its methods.
-    Name (string), Methods ([]Method), Docs ([]string), Definition (string), IsExported (bool), PtrPackage (*Package)
-  Struct: Method
-    Comment: Method represents a method in a Go struct or interface.
-    Receiver (string), Name (string), Params ([]Param), Returns ([]Param), Docs ([]string), Signature (string), Body (string), Definition (string), IsExported (bool), IsTest (bool), IsBenchmark (bool), PtrStruct (*Struct)
-  Struct: Module
-    Comment: Module represents a Go module with its packages.
-    RootModuleName (string), RelativeDirectory (string), FullName (string), Packages ([]Package)
-  Struct: Package
-    Comment: Package represents a Go package with its components such as imports, structs, functions, etc.
-    Package (string), ModuleName (string), Imports ([]Import), Structs ([]Struct), Functions ([]Function), Variables ([]Variable), Constants ([]Constant), Interfaces ([]Interface), PtrModule (*Module)
-  Struct: Param
-    Comment: Param represents a parameter or return value in a Go function or method.
-    Name (string), Type (string), TypeDetails (TypeDetails), PtrMethod (*Method), PtrFunc (*Function)
-  Struct: ParsedInfo
-    Comment: ParsedInfo holds parsed information about Go packages.
-    Modules ([]Module), Packages ([]Package), Directory (string), File (string)
-  Struct: Struct
-    Comment: Struct represents a Go struct and its fields and methods.
-    Name (string), Fields ([]Field), Methods ([]Method), Docs ([]string), Definition (string), IsExported (bool), PtrPackage (*Package)
-  Struct: TypeDetails
-    Package (*string), PackageName (*string), Type (*string), TypeName (string), IsPointer (bool), IsSlice (bool), IsMap (bool), IsBuiltin (bool), IsExternal (bool), TypeReferences ([]TypeReference)
-  Struct: TypeReference
-    Package (*string), PackageName (*string), Name (string)
-  Struct: Variable
-    Comment: Variable represents a global variable in a Go package.
-    Name (string), Type (string), Docs ([]string)
-  Functions: ParseFile, ParseDirectory, ParseString, augment, ParseDirectoryRecursive, getModulePath, ParseDirectoryWithFilter, extractStructs, extractInterfaces, extractImports, extractConstantsVariables, extractParams, formatParams, exprToString, exprToStringoriginal, getDocsForStruct, getDocsForFieldAst, getDocsForField, cleanDocText, void, resolveFullImportPath, getFullType, fieldListToString, justTypeString
+// directory: /Users/wricardo/go/src/github.com/wricardo/go2json
+package codesurgeon
+type CodeFragment struct{
+Content string
+Overwrite bool
+}
+type Constant struct{
+Name,Value string
+Docs []string
+}
+type Field struct{
+Name,Type string
+TypeDetails TypeDetails
+Tag string
+Private,Pointer,Slice bool
+Docs []string
+Comment string
+PtrStruct *Struct
+}
+type FileChange struct{
+PackageName,File string
+Fragments []CodeFragment
+}
+type Function struct{
+Name string
+Params,Returns []Param
+Docs []string
+Signature,Body,Definition string
+IsExported,IsTest,IsBenchmark bool
+}
+type GoList struct{
+Dir,ImportPath,Name,Target,Root string
+Module GoListModule
+Match []string
+Stale bool
+StaleReason string
+GoFiles,Imports,Deps []string
+}
+type GoListModule struct{
+Path string
+Main bool
+Dir,GoMod,GoVersion string
+}
+type Import struct{
+Name,Path string
+PtrPackage *Package
+}
+type Interface struct{
+Name string
+Methods []Method
+Docs []string
+Definition string
+IsExported bool
+PtrPackage *Package
+}
+type Method struct{
+Receiver,Name string
+Params,Returns []Param
+Docs []string
+Signature,Body,Definition string
+IsExported,IsTest,IsBenchmark bool
+PtrStruct *Struct
+}
+type Module struct{
+RootModuleName,RelativeDirectory,FullName string
+Packages []Package
+}
+type Package struct{
+Package,ModuleName string
+Imports []Import
+Structs []Struct
+Functions []Function
+Variables []Variable
+Constants []Constant
+Interfaces []Interface
+PtrModule *Module
+}
+type Param struct{
+Name,Type string
+TypeDetails TypeDetails
+PtrMethod *Method
+PtrFunc *Function
+}
+type ParsedInfo struct{
+Modules []Module
+Packages []Package
+Directory,File string
+}
+type Struct struct{
+Name string
+Fields []Field
+Methods []Method
+Docs []string
+Definition string
+IsExported bool
+PtrPackage *Package
+}
+type TypeDetails struct{
+Package,PackageName,Type *string
+TypeName string
+IsPointer,IsSlice,IsMap,IsBuiltin,IsExternal bool
+TypeReferences []TypeReference
+}
+type TypeReference struct{
+Package,PackageName *string
+Name string
+}
+type Variable struct{
+Name,Type string
+Docs []string
+}
+type fieldGroup struct{
+names []string
+typ string
+}
+type helper struct{
+structs map[string]helperField
+variables map[string]Variable
+constants map[string]Constant
+functions map[string]Function
+incerfaces map[string]Interface
+output *Package
+Struct(name string) helperField
+Variable(name string) Variable
+Constant(name string) Constant
+Function(name string) Function
+Interface(name string) Interface
+}
+type helperField struct{
+ Struct
+fields map[string]Field
+Field(name string) Field
+}
+func TestToSnakeCase(t *testing.T)
+func TestRenderTemplate(t *testing.T)
+func TestMustRenderTemplate(t *testing.T)
+func TestRenderTemplateNoError(t *testing.T)
+func TestEnsureGoFileExists(t *testing.T)
+func TestApplyFileChanges(t *testing.T)
+func TestInsertCodeFragments(t *testing.T)
+func TestFormatCodeAndFixImports(t *testing.T)
+func TestIsTestFunction(t *testing.T)
+func TestIsBenchmarkFunction(t *testing.T)
+func TestParseStringEdgeCases(t *testing.T)
+func TestParseDeclarationsFromCodeFragment(t *testing.T)
+func TestGetDeclName(t *testing.T)
+func TestGetReceiverType(t *testing.T)
+func newHelper(out *Package) helper
+func newHelperField(fields []Field, structt Struct) helperField
+func omitNullsFromJSON(data interface{}) interface{}
+func PrettyPrint(parsed []*ParsedInfo, mode string, ignoreRules []string, plainStructs bool, fieldsPlainStructs bool, structsWithMethod bool, fieldsStructsWithMethod bool, methods bool, functions bool, tags bool, comments bool, omitNulls bool) string
+func prettyPrintJSON(parsed []*ParsedInfo, omitNulls bool) string
+func prettyPrintGrepIndex(parsed []*ParsedInfo, ignoreRules []string, sb *strings.Builder) string
+func prettyPrintLLM(parsed []*ParsedInfo, ignoreRules []string, plainStructs bool, fieldsPlainStructs bool, structsWithMethod bool, fieldsStructsWithMethod bool, methods bool, functions bool, comments bool, sb *strings.Builder) string
+func filterFields(fields []Field, ignoreRules []string) []Field
+func filterMethods(methods []Method, ignoreRules []string) []Method
+func printFieldsToon(fields []Field, sb *strings.Builder)
+func printMethodsToon(methods []Method, sb *strings.Builder)
+func printVarsToon(vars []Variable, comments bool, sb *strings.Builder)
+func printConstsToon(consts []Constant, comments bool, sb *strings.Builder)
+func getPosition(p *ParsedInfo) (string, string)
+func shouldIgnorePosition(p *ParsedInfo, ignoreRules []string, posType string) bool
+func formatAndPrint(sb *strings.Builder, text string) string
+func processStructsForGrepIndex(pkg Package, pkg_ string, sb *strings.Builder)
+func processParamsForGrepIndex(params []Param, method_ string, sb *strings.Builder) string
+func processFunctionsForGrepIndex(pkg Package, pkg_ string, sb *strings.Builder)
+func processVariablesForGrepIndex(pkg Package, posType string, posValue string, sb *strings.Builder)
+func processConstantsForGrepIndex(pkg Package, pkg_ string, sb *strings.Builder)
+func processInterfacesForGrepIndex(pkg Package, pkg_ string, sb *strings.Builder)
+func shouldIgnoreStruct(s Struct, pkgName string, ignoreRules []string) bool
+func shouldIncludeStruct(s Struct, plainStructs bool, structsWithMethod bool) bool
+func shouldIgnoreField(f Field, ignoreRules []string) bool
+func shouldIgnoreMethod(m Method, ignoreRules []string) bool
+func shouldIgnoreFunction(f Function, ignoreRules []string) bool
+func TestStructDefinitionCapture(t *testing.T)
+func ParseFile(fileOrDirectory string) (*ParsedInfo, error)
+func ParseDirectory(fileOrDirectory string) (*ParsedInfo, error)
+func ParseString(fileContent string) (*ParsedInfo, error)
+func augment(m map[string]interface{}, n map[string]interface{}) map[string]interface{}
+func ParseDirectoryRecursive(path string) ([]*ParsedInfo, error)
+func getModulePath(path string) (*struct{Path string, Dir string}, error)
+func ParseDirectoryWithFilter(fileOrDirectory string, filter func(fs.FileInfo) (bool)) (*ParsedInfo, error)
+func extractStructs(docPkg *doc.Package, ourPkg Package) ([]Struct, error)
+func extractInterfaces(docPkg *doc.Package, pkg Package) ([]Interface, error)
+func extractImports(pkg *ast.Package) ([]Import, error)
+func extractConstantsVariables(pkg *ast.Package, ourPkg Package) ([]Constant, []Variable, error)
+func extractParams(fieldList *ast.FieldList, pkg Package) []Param
+func formatParams(fields *ast.FieldList, pkg Package) string
+func exprToString(expr ast.Expr) string
+func exprToStringoriginal(expr ast.Expr) string
+func getDocsForStruct(doc string) []string
+func getDocsForFieldAst(cg *ast.CommentGroup) []string
+func getDocsForField(list []string) []string
+func cleanDocText(doc string) string
+func void(_ ...interface{})
+func resolveFullImportPath(shortPackageName string, pkg Package) string
+func getFullType(expr ast.Expr, pkg Package) (*TypeDetails, error)
+func fieldListToString(fl *ast.FieldList, pkg Package) (string, error)
+func justTypeString(typeName string, isPointer bool, isSlice bool, packageName *ast.Ident) string
+func TestParseDirectory(t *testing.T)
+func TestCleanDocText(t *testing.T)
+func TestFirstStructMethods(t *testing.T)
+func TestPrivateStruct(t *testing.T)
+func TestParseString(t *testing.T)
+func TestParseStringWithFunctions(t *testing.T)
+func TestParseStringComments(t *testing.T)
+func TestParseInterface(t *testing.T)
+func TestParseFunctionWithBody(t *testing.T)
+func TestParseMethodsWithBody(t *testing.T)
+func TestParseGenericMethod(t *testing.T)
+func TestSomeFuncReturns(t *testing.T)
+func ApplyFileChanges(changes []FileChange) error
+func InsertCodeFragments(implementationsMap map[string][]CodeFragment) error
+func MustRenderTemplate(tmpl string, data interface{}) string
+func RenderTemplateNoError(tmpl string, data interface{}) string
+func RenderTemplate(tmpl string, data interface{}) (string, error)
+func FormatCodeAndFixImports(filePath string) error
+func parseDeclarationsFromCodeFrament(f CodeFragment) ([]ast.Decl, error)
+func upsertDeclaration(file *ast.File, newDecl ast.Decl, overwrite bool)
+func getReceiverType(funcDecl *ast.FuncDecl) string
+func getDeclName(decl ast.Decl) string
+func writeChangesToFile(filePath string, fset *token.FileSet, node ast.Node) error
+func renderModifiedNode(fset *token.FileSet, node ast.Node) (string, error)
+func ToSnakeCase(s string) string
+func FindFunction(directory string, receiver string, functionName string) (foundFilePath string, err error)
+func findFunctionInFile(filePath string, receiver string, functionName string) (bool, error)
+func writeFile(filePath string, content string) error
+func TestParseMultipleDeclarations(t *testing.T)
+func TestReplaceOrAddDecl_dontoverwrite(t *testing.T)
+func TestReplaceOrAddDecl_overwrite(t *testing.T)
+func TestGetTypeName(t *testing.T)
+func TestGetFuncName(t *testing.T)
+func TestParseMultipleDeclarations_EmptyCode(t *testing.T)
+func TestParseMultipleDeclarations_InvalidCode(t *testing.T)
+func TestReplaceOrAddDecl_AddNewDeclarationRepeatedName(t *testing.T)
+func TestReplaceOrAddDecl_AddNewDeclaration(t *testing.T)
+func TestReplaceOrAddDecl_ComplexDeclarations(t *testing.T)
+func TestMultipleChangesInSingleRequest(t *testing.T)
+func TestReplaceOrAddDecl_ReplaceExistingType(t *testing.T)
+func TestReplaceOrAddDecl_DoNotReplaceExistingType(t *testing.T)
+func TestReplaceOrAddDecl_AddNewFunction(t *testing.T)
+func TestReplaceOrAddDecl_ReplaceExistingFunction(t *testing.T)
+func TestReplaceOrAddDecl_DoNotReplaceExistingFunction(t *testing.T)
+func TestReplaceOrAddDecl_AddTypeWithMultipleExistingTypes(t *testing.T)
+func TestReplaceOrAddDecl_SkipImportDeclarations(t *testing.T)
+func parseCode(t *testing.T, src string) *ast.File
+func getMapStructsFieldsType(content string) map[string]map[string]string
+func formatCode(t *testing.T, file *ast.File) string
+func extractParsedInfo(packages map[string]*ast.Package, moduleName string, relModPath string) (*ParsedInfo, error)
+func parseFunctionDecl(funcDecl *ast.FuncDecl, docs string, pkg Package) (Function, error)
+func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Method, error)
+func extractFunctionsAndMethods(pkg *ast.Package, ourPkg Package) ([]Function, []Method, error)
+func isTestFunction(name string) bool
+func isBenchmarkFunction(name string) bool
+func EnsureGoFileExists(filename string, packageName string) error
+func FormatWithGoImports(filename string) error
 
