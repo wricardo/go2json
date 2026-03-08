@@ -1,0 +1,275 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/schemas/output_schema.json",
+  "title": "Output Schema for go2json CLI JSON output",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "directory": { "type": "string" },
+      "file": { "type": "string" },
+      "modules": {
+        "type": "array",
+        "items": { "$ref": "#/definitions/module" }
+      },
+      "packages": {
+        "type": "array",
+        "items": { "$ref": "#/definitions/package" }
+      }
+    },
+    "required": ["directory", "file", "modules", "packages"],
+    "additionalProperties": false
+  },
+  "definitions": {
+    "module": {
+      "type": "object",
+      "properties": {
+        "root_module_name": { "type": "string" },
+        "relative_directory": { "type": "string" },
+        "full_name": { "type": "string" },
+        "packages": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/package" }
+        }
+      },
+      "required": ["root_module_name", "relative_directory", "full_name", "packages"],
+      "additionalProperties": false
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "package": { "type": "string" },
+        "module_name": { "type": "string" },
+        "imports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "name": { "type": "string" }
+            },
+            "required": ["path"],
+            "additionalProperties": false
+          }
+        },
+        "structs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/struct" }
+        },
+        "functions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/function" }
+        },
+        "interfaces": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/interface" }
+        },
+        "constants": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/constant" }
+        },
+        "variables": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/variable" }
+        }
+      },
+      "required": ["package", "module_name"],
+      "additionalProperties": false
+    },
+    "struct": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/field" }
+        },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/method" }
+        },
+        "definition": { "type": "string" },
+        "is_exported": { "type": "boolean" },
+        "docs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["name", "definition", "is_exported"],
+      "additionalProperties": false
+    },
+    "interface": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "methods": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/functionBase" }
+        },
+        "definition": { "type": "string" },
+        "is_exported": { "type": "boolean" }
+      },
+      "required": ["name", "definition", "is_exported"],
+      "additionalProperties": false
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "type_details": { "$ref": "#/definitions/typeDetails" },
+        "tag": { "type": "string" },
+        "private": { "type": "boolean" },
+        "pointer": { "type": "boolean" },
+        "slice": { "type": "boolean" },
+        "docs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "comment": { "type": "string" }
+      },
+      "required": ["name", "type", "type_details", "private", "pointer", "slice"],
+      "additionalProperties": false
+    },
+    "functionBase": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "returns": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "docs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "signature": { "type": "string" },
+        "body": { "type": "string" },
+        "definition": { "type": "string" },
+        "is_exported": { "type": "boolean" },
+        "is_test": { "type": "boolean" },
+        "is_benchmark": { "type": "boolean" }
+      },
+      "required": ["name", "signature", "definition", "is_exported", "is_test", "is_benchmark"],
+      "additionalProperties": false
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "returns": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "docs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "signature": { "type": "string" },
+        "body": { "type": "string" },
+        "definition": { "type": "string" },
+        "is_exported": { "type": "boolean" },
+        "is_test": { "type": "boolean" },
+        "is_benchmark": { "type": "boolean" }
+      },
+      "required": ["name", "signature", "body", "definition", "is_exported", "is_test", "is_benchmark"],
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "properties": {
+        "receiver": { "type": "string" },
+        "name": { "type": "string" },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "returns": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/param" }
+        },
+        "docs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "signature": { "type": "string" },
+        "body": { "type": "string" },
+        "definition": { "type": "string" },
+        "is_exported": { "type": "boolean" },
+        "is_test": { "type": "boolean" },
+        "is_benchmark": { "type": "boolean" }
+      },
+      "required": ["receiver", "name", "signature", "body", "definition", "is_exported", "is_test", "is_benchmark"],
+      "additionalProperties": false
+    },
+    "param": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "type_details": { "$ref": "#/definitions/typeDetails" }
+      },
+      "required": ["name", "type", "type_details"],
+      "additionalProperties": false
+    },
+    "constant": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["name", "value"],
+      "additionalProperties": false
+    },
+    "variable": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["name", "type"],
+      "additionalProperties": false
+    },
+    "typeDetails": {
+      "type": "object",
+      "properties": {
+        "Package": { "type": ["string", "null"] },
+        "PackageName": { "type": ["string", "null"] },
+        "Type": { "type": ["string", "null"] },
+        "TypeName": { "type": "string" },
+        "IsPointer": { "type": "boolean" },
+        "IsSlice": { "type": "boolean" },
+        "IsMap": { "type": "boolean" },
+        "IsBuiltin": { "type": "boolean" },
+        "IsExternal": { "type": "boolean" },
+        "TypeReferences": {
+          "type": ["array", "null"],
+          "items": { "$ref": "#/definitions/typeReference" }
+        }
+      },
+      "required": [
+        "Package", "PackageName", "Type", "TypeName",
+        "IsPointer", "IsSlice", "IsMap", "IsBuiltin", "IsExternal", "TypeReferences"
+      ],
+      "additionalProperties": false
+    },
+    "typeReference": {
+      "type": "object",
+      "properties": {
+        "Package": { "type": "string" },
+        "PackageName": { "type": "string" },
+        "Name": { "type": "string" }
+      },
+      "required": ["Package", "PackageName", "Name"],
+      "additionalProperties": false
+    }
+  }
+}

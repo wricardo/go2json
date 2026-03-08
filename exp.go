@@ -142,7 +142,7 @@ func parseFunctionDecl(funcDecl *ast.FuncDecl, docs string, pkg Package) (Functi
 
 						PtrFunc: &function,
 					}
-						params = append(params, *p)
+					params = append(params, *p)
 
 				}
 			} else {
@@ -276,7 +276,7 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 						PtrMethod: &method,
 					}
-						params = append(params, *p)
+					params = append(params, *p)
 
 				}
 			} else {
@@ -311,7 +311,7 @@ func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Metho
 
 						PtrMethod: &method,
 					}
-						returns = append(returns, *p)
+					returns = append(returns, *p)
 				}
 			} else {
 				p := &Param{
