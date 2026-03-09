@@ -1,4 +1,4 @@
-package codesurgeon
+package go2json
 
 import (
 	"bytes"
@@ -7,7 +7,6 @@ import (
 	"go/printer"
 	"go/token"
 	"testing"
-
 
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +18,7 @@ func TestParseMultipleDeclarations(t *testing.T) {
 	type Struct2 struct { Field2 int }
 	func Function1(param1 int) string { return "result" }
 	`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -105,7 +104,7 @@ func TestReplaceOrAddDecl_overwrite(t *testing.T) {
 // Test for getTypeName
 func TestGetTypeName(t *testing.T) {
 	code := `type MyStruct struct { Field1 string }`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 	if err != nil {
 		t.Fatalf("Failed to parse declaration: %v", err)
 	}
@@ -119,7 +118,7 @@ func TestGetTypeName(t *testing.T) {
 // Test for getFuncName
 func TestGetFuncName(t *testing.T) {
 	code := `func MyFunction(param1 int) string { return "result" }`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 	if err != nil {
 		t.Fatalf("Failed to parse declaration: %v", err)
 	}
@@ -133,7 +132,7 @@ func TestGetFuncName(t *testing.T) {
 // Test for empty declarations in parseMultipleDeclarations
 func TestParseMultipleDeclarations_EmptyCode(t *testing.T) {
 	code := "" // Empty input
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -146,7 +145,7 @@ func TestParseMultipleDeclarations_EmptyCode(t *testing.T) {
 // Test for invalid Go code in parseMultipleDeclarations
 func TestParseMultipleDeclarations_InvalidCode(t *testing.T) {
 	code := "invalid Go code"
-	_, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+	_, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 	if err == nil {
 		t.Errorf("Expected an error for invalid code, but got none")
 	}
@@ -168,7 +167,7 @@ func TestReplaceOrAddDecl_AddNewDeclarationRepeatedName(t *testing.T) {
 
 	// New declaration to add
 	newDeclCode := `func SomeMethod(arg1 string) {}`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: newDeclCode})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: newDeclCode})
 	if err != nil {
 		t.Fatalf("Failed to parse new declaration: %v", err)
 	}
@@ -213,7 +212,7 @@ func TestReplaceOrAddDecl_AddNewDeclaration(t *testing.T) {
 
 	// New declaration to add
 	newDeclCode := `type NewStruct struct { Field2 int }`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: newDeclCode})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: newDeclCode})
 	if err != nil {
 		t.Fatalf("Failed to parse new declaration: %v", err)
 	}
@@ -272,7 +271,7 @@ func TestReplaceOrAddDecl_ComplexDeclarations(t *testing.T) {
 	func (c *ComplexStruct) ComplexMethod(param1 int) string {
 		return "result"
 	}`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: newDeclCode})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: newDeclCode})
 	if err != nil {
 		t.Fatalf("Failed to parse complex declaration: %v", err)
 	}
@@ -321,7 +320,7 @@ func TestMultipleChangesInSingleRequest(t *testing.T) {
 	type NewStruct1 struct { FieldA string }
 	type NewStruct2 struct { FieldB int }
 	`
-	decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: newDeclCode})
+	decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: newDeclCode})
 	if err != nil {
 		t.Fatalf("Failed to parse new declarations: %v", err)
 	}

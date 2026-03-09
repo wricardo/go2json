@@ -1,4 +1,4 @@
-package codesurgeon
+package go2json
 
 import (
 	"bytes"
@@ -6,322 +6,102 @@ import (
 	"fmt"
 	"go/ast"
 	"go/doc"
-	"go/parser"
+	"go/format"
 	"go/printer"
 	"go/token"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
-
-	"golang.org/x/mod/modfile"
 )
 
-// ParsedInfo holds parsed information about Go packages.
-type ParsedInfo struct {
-	Modules   []Module  `json:"modules"`
-	Packages  []Package `json:"packages"`  // Deprecated: use Modules instead
-	Directory string    `json:"directory"` // if information was parsed from a directory. It's either a directory or a file
-	File      string    `json:"file"`      // if information was parsed from a single file. It's either a directory or a file
-}
-
-// Module represents a Go module with its packages.
-type Module struct {
-	RootModuleName    string    `json:"root_module_name"`   // Name of the module as seen on the go.mod file of the project
-	RelativeDirectory string    `json:"relative_directory"` // Relative (to go.mod) directory of the module / or /cmd/something
-	FullName          string    `json:"full_name"`          // Full name of the module, including the relative directory should be RootModuleName/RelativeDirectory
-	Packages          []Package `json:"packages"`
-}
-
-// Package represents a Go package with its components such as imports, structs, functions, etc.
-type Package struct {
-	Package    string      `json:"package"`     // Name of the package as seen in the package declaration (e.g., "main")
-	ModuleName string      `json:"module_name"` // Name of the module as seen in the go.mod file
-	Imports    []Import    `json:"imports,omitempty"`
-	Structs    []Struct    `json:"structs,omitempty"`
-	Functions  []Function  `json:"functions,omitempty"`
-	Variables  []Variable  `json:"variables,omitempty"`
-	Constants  []Constant  `json:"constants,omitempty"`
-	Interfaces []Interface `json:"interfaces,omitempty"`
-	TypeDefs   []TypeDef   `json:"type_defs,omitempty"`
-
-	PtrModule *Module `json:"-"` // Pointer to the module that this package belongs to
-}
-
-// TypeDef represents a named type declaration that is neither a struct nor an interface
-// (e.g., "type SomeFunc func(a string) error" or "type SpecialString string").
-type TypeDef struct {
-	Name       string   `json:"name"`
-	Underlying string   `json:"underlying"`            // The underlying type expression as a string
-	Docs       []string `json:"docs,omitempty"`
-	Definition string   `json:"definition,omitempty"`   // Full Go code definition
-	IsExported bool     `json:"is_exported"`
-
-	PtrPackage *Package `json:"-"`
-}
-
-type Import struct {
-	Name string `json:"name,omitempty"` // the alias of the package as it's being imported
-	Path string `json:"path"`
-
-	PtrPackage *Package `json:"-"` // Pointer to the package that this import belongs to
-}
-
-// Interface represents a Go interface and its methods.
-type Interface struct {
-	Name       string   `json:"name"`
-	Methods    []Method `json:"methods,omitempty"`
-	Docs       []string `json:"docs,omitempty"`
-	Definition string   `json:"definition,omitempty"` // Full Go code definition of the interface
-	IsExported bool     `json:"is_exported"`          // Whether the interface is exported (public)
-
-	PtrPackage *Package `json:"-"` // Pointer to the package that this interface belongs to
-}
-
-// Struct represents a Go struct and its fields and methods.
-type Struct struct {
-	Name       string   `json:"name"`
-	Fields     []Field  `json:"fields,omitempty"`
-	Methods    []Method `json:"methods,omitempty"`
-	Docs       []string `json:"docs,omitempty"`
-	Definition string   `json:"definition,omitempty"` // Full Go code definition of the struct
-	IsExported bool     `json:"is_exported"`          // Whether the struct is exported (public)
-
-	PtrPackage *Package `json:"-"` // Pointer to the package that this struct belongs to
-}
-
-// Method represents a method in a Go struct or interface.
-type Method struct {
-	Receiver    string   `json:"receiver,omitempty"` // Receiver type (e.g., "*MyStruct" or "MyStruct")
-	Name        string   `json:"name"`
-	Params      []Param  `json:"params,omitempty"`
-	Returns     []Param  `json:"returns,omitempty"`
-	Docs        []string `json:"docs,omitempty"`
-	Signature   string   `json:"signature"`
-	Body        string   `json:"body,omitempty"`       // New field for method body
-	Definition  string   `json:"definition,omitempty"` // Full Go code definition of the method
-	IsExported  bool     `json:"is_exported"`          // Whether the method is exported (public)
-	IsTest      bool     `json:"is_test"`              // Whether the method is a test method
-	IsBenchmark bool     `json:"is_benchmark"`         // Whether the method is a benchmark method
-
-	PtrStruct *Struct `json:"-"` // Pointer to the struct that this method belongs to
-}
-
-// Function represents a Go function with its parameters, return types, and documentation.
-type Function struct {
-	Name        string   `json:"name"`
-	Params      []Param  `json:"params,omitempty"`
-	Returns     []Param  `json:"returns,omitempty"`
-	Docs        []string `json:"docs,omitempty"`
-	Signature   string   `json:"signature"`
-	Body        string   `json:"body,omitempty"`       // New field for function body
-	Definition  string   `json:"definition,omitempty"` // Full Go code definition of the function
-	IsExported  bool     `json:"is_exported"`          // Whether the function is exported (public)
-	IsTest      bool     `json:"is_test"`              // Whether the function is a test function (TestXxx)
-	IsBenchmark bool     `json:"is_benchmark"`         // Whether the function is a benchmark function (BenchmarkXxx)
-}
-
-// Param represents a parameter or return value in a Go function or method.
-type Param struct {
-	Name        string      `json:"name"` // Name of the parameter or return value
-	Type        string      `json:"type"` // Type (e.g., "int", "*string")
-	TypeDetails TypeDetails `json:"type_details"`
-
-	PtrMethod *Method   `json:"-"` // Pointer to the method that this parameter belongs to
-	PtrFunc   *Function `json:"-"` // Pointer to the function that this parameter belongs to
-}
-
-// Field represents a field in a Go struct.
-type Field struct {
-	Name        string      `json:"name"`
-	Type        string      `json:"type"`
-	TypeDetails TypeDetails `json:"type_details"`
-	Tag         string      `json:"tag,omitempty"`
-	Private     bool        `json:"private"`
-	Pointer     bool        `json:"pointer"`
-	Slice       bool        `json:"slice"`
-	Docs        []string    `json:"docs,omitempty"`
-	Comment     string      `json:"comment,omitempty"`
-
-	PtrStruct *Struct `json:"-"` // Pointer to the struct that this field belongs to
-}
-
-type TypeDetails struct {
-	Package     *string // in the cases of external types. like pbhire.Person this would be "github.com/x/y/pbhire"
-	PackageName *string // in the cases of external types. like pbhire.Person this would be "pbhire"
-	Type        *string // in the cases of external types. like pbhire.Person this would be "Person"
-
-	TypeName       string
-	IsPointer      bool
-	IsSlice        bool
-	IsMap          bool
-	IsBuiltin      bool // if string, int, etc
-	IsExternal     bool // if the type is from another package
-	TypeReferences []TypeReference
-}
-
-type TypeReference struct {
-	Package     *string
-	PackageName *string
-	Name        string // the name of the type, example TypeReference or Person or int32 or string
-}
-
-// Variable represents a global variable in a Go package.
-type Variable struct {
-	Name string   `json:"name"`
-	Type string   `json:"type"`
-	Docs []string `json:"docs,omitempty"`
-}
-
-// Constant represents a constant in a Go package.
-type Constant struct {
-	Name  string   `json:"name"`
-	Value string   `json:"value"`
-	Docs  []string `json:"docs,omitempty"`
-}
-
-// ParseFile parses a Go file or directory and returns the parsed information.
-func ParseFile(fileOrDirectory string) (*ParsedInfo, error) {
-	return ParseDirectory(fileOrDirectory)
-}
-
-// ParseDirectory parses a directory containing Go files and returns the parsed information.
-func ParseDirectory(fileOrDirectory string) (*ParsedInfo, error) {
-	return ParseDirectoryWithFilter(fileOrDirectory, nil)
-}
-
-// ParseString parses Go source code provided as a string and returns the parsed information.
-func ParseString(fileContent string) (*ParsedInfo, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", fileContent, parser.ParseComments|parser.AllErrors|parser.DeclarationErrors)
-	if err != nil {
-		return nil, err
+// extractParsedInfo extracts parsed information from the AST.
+// moduleName is the name of the module being parsed, as seen on the go.mod file.
+func extractParsedInfo(packages map[string]*ast.Package, moduleName string, relModPath string) (*ParsedInfo, error) {
+	output := &ParsedInfo{
+		Modules: make([]Module, 0, len(packages)),
 	}
 
-	packages := map[string]*ast.Package{
-		"": {
-			Name:  file.Name.Name,
-			Files: map[string]*ast.File{"": file},
-		},
+	// Construct full name, avoiding trailing slash for root module
+	trimmedPath := strings.TrimLeft(relModPath, "./")
+	fullName := moduleName
+	if trimmedPath != "" {
+		fullName = moduleName + "/" + trimmedPath
 	}
 
-	return extractParsedInfo(packages, "", "")
-}
-
-// ParseDirectoryRecursive parses a directory recursively and returns the parsed information.
-func ParseDirectoryRecursive(path string) ([]*ParsedInfo, error) {
-	var results []*ParsedInfo
-
-	err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() { // Process only directories
-			if strings.Contains(p, ".git") {
-				return nil
-			}
-			parsed, err := ParseDirectoryWithFilter(p, func(info fs.FileInfo) bool {
-				return true
-			}) // Assuming this function parses a single file
-			if err != nil {
-				return err
-			}
-			results = append(results, parsed)
-		}
-		return nil
-	})
-	return results, err
-}
-
-// getModulePath reads the module name from the go.mod file.
-func getModulePath(path string) (*struct {
-	Path string
-	Dir  string
-}, error) {
-	dir := path
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-			if err != nil {
-				return nil, fmt.Errorf("error reading go.mod: %w", err)
-			}
-			modFile, err := modfile.Parse("go.mod", data, nil)
-			if err != nil {
-				return nil, fmt.Errorf("error parsing go.mod: %w", err)
-			}
-			return &struct {
-				Path string
-				Dir  string
-			}{
-				Path: modFile.Module.Mod.Path,
-				Dir:  dir,
-			}, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return nil, fmt.Errorf("go.mod not found")
-		}
-		dir = parent
-	}
-}
-
-// ParseDirectoryWithFilter parses a directory with an optional filter function to include specific files.
-func ParseDirectoryWithFilter(fileOrDirectory string, filter func(fs.FileInfo) bool) (*ParsedInfo, error) {
-	fi, err := os.Stat(fileOrDirectory)
-	if err != nil {
-		return nil, err
+	m := &Module{
+		RootModuleName:    moduleName,
+		RelativeDirectory: relModPath,
+		FullName:          fullName,
+		Packages:          make([]Package, 0, len(packages)),
 	}
 
-	var packages map[string]*ast.Package
-	fset := token.NewFileSet()
+	for _, pkg := range packages {
+		outPkg := Package{
+			Structs:   make([]Struct, 0),
+			Functions: make([]Function, 0),
+			Variables: make([]Variable, 0),
+			Constants: make([]Constant, 0),
+			Imports:   make([]Import, 0),
+			TypeDefs:  make([]TypeDef, 0),
+		}
 
-	isDir := true
-	switch mode := fi.Mode(); {
-	case mode.IsDir():
-		packages, err = parser.ParseDir(fset, fileOrDirectory, filter, parser.ParseComments|parser.AllErrors|parser.DeclarationErrors)
+		docPkg := doc.New(pkg, "", doc.AllDecls|doc.AllMethods|doc.PreserveAST)
+		outPkg.Package = pkg.Name
+
+		imports, err := extractImports(pkg)
 		if err != nil {
 			return nil, err
 		}
-	case mode.IsRegular():
-		isDir = false
-		file, err := parser.ParseFile(fset, fileOrDirectory, nil, parser.ParseComments|parser.AllErrors|parser.DeclarationErrors)
+		outPkg.Imports = imports
+
+		structs, err := extractStructs(docPkg, outPkg)
 		if err != nil {
 			return nil, err
 		}
-		packages = map[string]*ast.Package{
-			fileOrDirectory: {
-				Name:  file.Name.Name,
-				Files: map[string]*ast.File{fileOrDirectory: file},
-			},
-		}
-	}
+		outPkg.Structs = append(outPkg.Structs, structs...)
 
-	// Determine full module path
-	modulePath, err := getModulePath(fileOrDirectory)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving module path: %w", err)
-	}
-	relPath, err := filepath.Rel(modulePath.Dir, fileOrDirectory)
-	if err != nil {
-		return nil, fmt.Errorf("error resolving relative path: %w", err)
-	}
+		interfaces, err := extractInterfaces(docPkg, outPkg)
+		if err != nil {
+			return nil, err
+		}
+		outPkg.Interfaces = append(outPkg.Interfaces, interfaces...)
 
-	parsedInfo, err := extractParsedInfo(packages, modulePath.Path, relPath)
-	if err != nil {
-		return nil, err
-	}
-	if isDir {
-		parsedInfo.Directory = fileOrDirectory
-		if abs, err := filepath.Abs(fileOrDirectory); err == nil {
-			parsedInfo.Directory = abs
+		typeDefs, err := extractTypeDefs(docPkg, outPkg)
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		parsedInfo.File = fileOrDirectory
-		if abs, err := filepath.Abs(fileOrDirectory); err == nil {
-			parsedInfo.File = abs
+		outPkg.TypeDefs = append(outPkg.TypeDefs, typeDefs...)
+
+		structMap := make(map[string]*Struct)
+		for i := range outPkg.Structs {
+			structMap[outPkg.Structs[i].Name] = &outPkg.Structs[i]
 		}
+
+		functions, methods, err := extractFunctionsAndMethods(pkg, outPkg)
+		if err != nil {
+			return nil, err
+		}
+		outPkg.Functions = append(outPkg.Functions, functions...)
+
+		for _, method := range methods {
+			receiverName := strings.TrimPrefix(method.Receiver, "*")
+			if structPtr, ok := structMap[receiverName]; ok {
+				method.PtrStruct = structPtr
+				structPtr.Methods = append(structPtr.Methods, method)
+			}
+		}
+
+		constants, variables, err := extractConstantsVariables(pkg, outPkg)
+		if err != nil {
+			return nil, err
+		}
+		outPkg.Constants = append(outPkg.Constants, constants...)
+		outPkg.Variables = append(outPkg.Variables, variables...)
+
+		m.Packages = append(m.Packages, outPkg)
 	}
-	return parsedInfo, nil
+	output.Modules = append(output.Modules, *m)
+	output.Packages = m.Packages
+
+	return output, nil
 }
 
 // extractStructs extracts structs from the provided documentation package.
@@ -346,46 +126,31 @@ func extractStructs(docPkg *doc.Package, ourPkg Package) ([]Struct, error) {
 					Docs:       getDocsForStruct(t.Doc),
 					Methods:    make([]Method, 0),
 					IsExported: ast.IsExported(t.Name),
-
 					PtrPackage: &ourPkg,
 				}
 
-				// Generate the full struct definition using AST
 				var defBuf bytes.Buffer
-				// Use go/format to properly format the struct definition
 				defBuf.WriteString(fmt.Sprintf("type %s struct {\n", t.Name))
 				for _, field := range structType.Fields.List {
-					// Format each field properly
 					defBuf.WriteString("\t")
-
-					// Field names
 					for i, name := range field.Names {
 						if i > 0 {
 							defBuf.WriteString(", ")
 						}
 						defBuf.WriteString(name.Name)
 					}
-
-					// If there are field names, add a space
 					if len(field.Names) > 0 {
 						defBuf.WriteString(" ")
 					}
-
-					// Field type
 					defBuf.WriteString(exprToString(field.Type))
-
-					// Field tag
 					if field.Tag != nil {
 						defBuf.WriteString(" ")
 						defBuf.WriteString(field.Tag.Value)
 					}
-
-					// Field comment
 					if field.Comment != nil && len(field.Comment.List) > 0 {
 						defBuf.WriteString(" ")
 						defBuf.WriteString(field.Comment.List[0].Text)
 					}
-
 					defBuf.WriteString("\n")
 				}
 				defBuf.WriteString("}")
@@ -398,10 +163,9 @@ func extractStructs(docPkg *doc.Package, ourPkg Package) ([]Struct, error) {
 					}
 
 					field := Field{
-						Name: name,
-						Type: "",
-						Tag:  "",
-
+						Name:        name,
+						Type:        "",
+						Tag:         "",
 						TypeDetails: TypeDetails{},
 					}
 
@@ -428,7 +192,6 @@ func extractStructs(docPkg *doc.Package, ourPkg Package) ([]Struct, error) {
 					field.TypeDetails = *typeDetails
 					field.Pointer = typeDetails.IsPointer
 					field.Slice = typeDetails.IsSlice
-
 					field.Type = typeDetails.TypeName
 
 					parsedStruct.Fields = append(parsedStruct.Fields, field)
@@ -462,17 +225,14 @@ func extractInterfaces(docPkg *doc.Package, pkg Package) ([]Interface, error) {
 					Methods:    make([]Method, 0),
 					Docs:       getDocsForStruct(t.Doc),
 					IsExported: ast.IsExported(t.Name),
-
 					PtrPackage: &pkg,
 				}
 
-				// Generate the full interface definition
 				var defBuf bytes.Buffer
 				defBuf.WriteString(fmt.Sprintf("type %s interface {\n", t.Name))
 
 				for _, m := range interfaceType.Methods.List {
 					if funcType, ok := m.Type.(*ast.FuncType); ok {
-						// Generate method definition
 						methodDef := m.Names[0].Name + "(" + formatParams(funcType.Params, pkg) + ")"
 						if funcType.Results != nil && len(funcType.Results.List) > 0 {
 							returnStr := formatParams(funcType.Results, pkg)
@@ -497,14 +257,12 @@ func extractInterfaces(docPkg *doc.Package, pkg Package) ([]Interface, error) {
 							IsBenchmark: isBenchmarkFunction(methodName),
 						}
 
-						// Add method to definition buffer
 						defBuf.WriteString("\t")
 						defBuf.WriteString(m.Names[0].Name)
 						defBuf.WriteString("(")
 						defBuf.WriteString(formatParams(funcType.Params, pkg))
 						defBuf.WriteString(")")
 
-						// Add return types if any
 						if funcType.Results != nil && len(funcType.Results.List) > 0 {
 							defBuf.WriteString(" ")
 							returnStr := formatParams(funcType.Results, pkg)
@@ -544,7 +302,6 @@ func extractTypeDefs(docPkg *doc.Package, pkg Package) ([]TypeDef, error) {
 			if !ok {
 				continue
 			}
-			// Skip structs and interfaces — they're handled elsewhere
 			if _, isStruct := typeSpec.Type.(*ast.StructType); isStruct {
 				continue
 			}
@@ -574,14 +331,10 @@ func extractImports(pkg *ast.Package) ([]Import, error) {
 	for _, file := range pkg.Files {
 		for _, importSpec := range file.Imports {
 			importPath := strings.Trim(importSpec.Path.Value, "\"")
-
-			// Extract import alias/name if it exists
 			var importName string
 			if importSpec.Name != nil {
 				importName = importSpec.Name.Name
 			}
-
-			// Use import path as key to deduplicate
 			importMap[importPath] = Import{
 				Name: importName,
 				Path: importPath,
@@ -661,14 +414,12 @@ func extractParams(fieldList *ast.FieldList, pkg Package) []Param {
 	params := make([]Param, 0, len(fieldList.List))
 	for _, field := range fieldList.List {
 		paramType, err := getFullType(field.Type, pkg)
-		// paramType, _, _, err := getType(field.Type)
 		if err != nil {
-			continue // Or handle the error properly
+			continue
 		}
 		for _, name := range field.Names {
 			params = append(params, Param{Name: name.Name, Type: paramType.TypeName, TypeDetails: *paramType})
 		}
-		// Handle anonymous parameters (e.g., func(int, string) without names)
 		if len(field.Names) == 0 {
 			params = append(params, Param{Name: "", Type: paramType.TypeName, TypeDetails: *paramType})
 		}
@@ -691,6 +442,539 @@ func formatParams(fields *ast.FieldList, pkg Package) string {
 	return strings.Join(paramStrings, ", ")
 }
 
+// parseFunctionDecl extracts function details from an *ast.FuncDecl node.
+func parseFunctionDecl(funcDecl *ast.FuncDecl, docs string, pkg Package) (Function, error) {
+	funcName := funcDecl.Name.Name
+	function := Function{
+		Name:        funcName,
+		Docs:        getDocsForField([]string{docs}),
+		IsExported:  ast.IsExported(funcName),
+		IsTest:      isTestFunction(funcName),
+		IsBenchmark: isBenchmarkFunction(funcName),
+	}
+
+	params := []Param{}
+	if funcDecl.Type.Params != nil {
+		for _, param := range funcDecl.Type.Params.List {
+			paramType, err := getFullType(param.Type, pkg)
+			if err != nil {
+				return function, err
+			}
+
+			if len(param.Names) > 0 {
+				for _, name := range param.Names {
+					p := &Param{
+						Name:        name.Name,
+						Type:        paramType.TypeName,
+						TypeDetails: *paramType,
+						PtrFunc:     &function,
+					}
+					params = append(params, *p)
+				}
+			} else {
+				p := &Param{
+					Type:        paramType.TypeName,
+					TypeDetails: *paramType,
+					PtrFunc:     &function,
+				}
+				params = append(params, *p)
+			}
+		}
+	}
+	function.Params = params
+
+	returns := []Param{}
+	if funcDecl.Type.Results != nil {
+		for _, result := range funcDecl.Type.Results.List {
+			returnType, err := getFullType(result.Type, pkg)
+			if err != nil {
+				return function, err
+			}
+
+			if len(result.Names) > 0 {
+				for _, name := range result.Names {
+					returns = append(returns, Param{
+						Name:    name.Name,
+						Type:    returnType.TypeName,
+						PtrFunc: &function,
+					})
+				}
+			} else {
+				returns = append(returns, Param{
+					Type:    returnType.TypeName,
+					PtrFunc: &function,
+				})
+			}
+		}
+	}
+	function.Returns = returns
+
+	var bodyBuf bytes.Buffer
+	if funcDecl.Body != nil {
+		err := format.Node(&bodyBuf, token.NewFileSet(), funcDecl.Body)
+		if err != nil {
+			return function, err
+		}
+		function.Body = bodyBuf.String()
+	}
+
+	paramStrings := []string{}
+	for _, param := range function.Params {
+		if param.Name != "" {
+			paramStrings = append(paramStrings, param.Name+" "+param.Type)
+		} else {
+			paramStrings = append(paramStrings, param.Type)
+		}
+	}
+
+	returnStrings := []string{}
+	for _, ret := range function.Returns {
+		if ret.Name != "" {
+			returnStrings = append(returnStrings, ret.Name+" "+ret.Type)
+		} else {
+			returnStrings = append(returnStrings, ret.Type)
+		}
+	}
+
+	signature := fmt.Sprintf("%s(%s)", function.Name, strings.Join(paramStrings, ", "))
+	if len(returnStrings) > 0 {
+		returnsStr := strings.Join(returnStrings, ", ")
+		if len(function.Returns) > 1 {
+			returnsStr = "(" + returnsStr + ")"
+		}
+		signature += fmt.Sprintf(" %s", returnsStr)
+	}
+	function.Signature = signature
+
+	definition := fmt.Sprintf("func %s(%s)", function.Name, strings.Join(paramStrings, ", "))
+	if len(returnStrings) > 0 {
+		returnsStr := strings.Join(returnStrings, ", ")
+		if len(function.Returns) > 1 {
+			returnsStr = "(" + returnsStr + ")"
+		}
+		definition += fmt.Sprintf(" %s", returnsStr)
+	}
+	function.Definition = definition
+
+	return function, nil
+}
+
+// parseMethodDecl extracts method details from an *ast.FuncDecl node.
+func parseMethodDecl(funcDecl *ast.FuncDecl, docs string, ourPkg Package) (Method, error) {
+	receiverType, _ := getFullType(funcDecl.Recv.List[0].Type, ourPkg)
+	methodName := funcDecl.Name.Name
+	method := Method{
+		Name:        methodName,
+		Receiver:    receiverType.TypeName,
+		Docs:        getDocsForField([]string{docs}),
+		IsExported:  ast.IsExported(methodName),
+		IsTest:      isTestFunction(methodName),
+		IsBenchmark: isBenchmarkFunction(methodName),
+	}
+
+	params := []Param{}
+	if funcDecl.Type.Params != nil {
+		for _, param := range funcDecl.Type.Params.List {
+			paramType, err := getFullType(param.Type, ourPkg)
+			if err != nil {
+				return method, err
+			}
+			if (paramType.PackageName == nil || *paramType.PackageName == "") && ourPkg.Package != "" {
+				paramType.PackageName = &ourPkg.Package
+			}
+
+			if len(param.Names) > 0 {
+				for _, name := range param.Names {
+					p := &Param{
+						Name:        name.Name,
+						Type:        paramType.TypeName,
+						TypeDetails: *paramType,
+						PtrMethod:   &method,
+					}
+					params = append(params, *p)
+				}
+			} else {
+				p := &Param{
+					Name:        "",
+					Type:        paramType.TypeName,
+					TypeDetails: *paramType,
+					PtrMethod:   &method,
+				}
+				params = append(params, *p)
+			}
+		}
+	}
+	method.Params = params
+
+	returns := []Param{}
+	if funcDecl.Type.Results != nil {
+		for _, result := range funcDecl.Type.Results.List {
+			returnType, err := getFullType(result.Type, ourPkg)
+			if err != nil {
+				return method, err
+			}
+
+			if len(result.Names) > 0 {
+				for _, name := range result.Names {
+					p := &Param{
+						Name:        name.Name,
+						Type:        returnType.TypeName,
+						TypeDetails: *returnType,
+						PtrMethod:   &method,
+					}
+					returns = append(returns, *p)
+				}
+			} else {
+				p := &Param{
+					Name:        "",
+					Type:        returnType.TypeName,
+					TypeDetails: *returnType,
+					PtrMethod:   &method,
+				}
+				returns = append(returns, *p)
+			}
+		}
+	}
+	method.Returns = returns
+
+	var bodyBuf bytes.Buffer
+	if funcDecl.Body != nil {
+		err := format.Node(&bodyBuf, token.NewFileSet(), funcDecl.Body)
+		if err != nil {
+			return method, err
+		}
+		method.Body = bodyBuf.String()
+	}
+
+	paramStrings := []string{}
+	for _, param := range method.Params {
+		if param.Name != "" {
+			paramStrings = append(paramStrings, param.Name+" "+param.Type)
+		} else {
+			paramStrings = append(paramStrings, param.Type)
+		}
+	}
+
+	returnStrings := []string{}
+	for _, ret := range method.Returns {
+		if ret.Name != "" {
+			returnStrings = append(returnStrings, ret.Name+" "+ret.Type)
+		} else {
+			returnStrings = append(returnStrings, ret.Type)
+		}
+	}
+
+	signature := fmt.Sprintf("%s(%s)", method.Name, strings.Join(paramStrings, ", "))
+	if len(returnStrings) > 0 {
+		returnsStr := strings.Join(returnStrings, ", ")
+		if len(method.Returns) > 1 {
+			returnsStr = "(" + returnsStr + ")"
+		}
+		signature += fmt.Sprintf(" %s", returnsStr)
+	}
+	method.Signature = signature
+
+	definition := fmt.Sprintf("func (%s) %s(%s)", method.Receiver, method.Name, strings.Join(paramStrings, ", "))
+	if len(returnStrings) > 0 {
+		returnsStr := strings.Join(returnStrings, ", ")
+		if len(method.Returns) > 1 {
+			returnsStr = "(" + returnsStr + ")"
+		}
+		definition += fmt.Sprintf(" %s", returnsStr)
+	}
+	method.Definition = definition
+
+	return method, nil
+}
+
+// extractFunctionsAndMethods traverses the AST to extract all functions and methods.
+func extractFunctionsAndMethods(pkg *ast.Package, ourPkg Package) ([]Function, []Method, error) {
+	var functions []Function
+	var methods []Method
+
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+				if funcDecl.Recv == nil {
+					function, err := parseFunctionDecl(funcDecl, funcDecl.Doc.Text(), ourPkg)
+					if err != nil {
+						return nil, nil, err
+					}
+					functions = append(functions, function)
+				} else {
+					method, err := parseMethodDecl(funcDecl, funcDecl.Doc.Text(), ourPkg)
+					if err != nil {
+						return nil, nil, err
+					}
+					methods = append(methods, method)
+				}
+			}
+		}
+	}
+
+	return functions, methods, nil
+}
+
+// isTestFunction checks if a function name follows the Go test function naming convention.
+func isTestFunction(name string) bool {
+	return strings.HasPrefix(name, "Test") && len(name) > 4 && strings.ToUpper(name[4:5]) == name[4:5]
+}
+
+// isBenchmarkFunction checks if a function name follows the Go benchmark function naming convention.
+func isBenchmarkFunction(name string) bool {
+	return strings.HasPrefix(name, "Benchmark") && len(name) > 9 && strings.ToUpper(name[9:10]) == name[9:10]
+}
+
+// resolveFullImportPath resolves a short package name to its full import path
+// by looking through the package's imports list.
+func resolveFullImportPath(shortPackageName string, pkg Package) string {
+	for _, imp := range pkg.Imports {
+		importName := imp.Name
+		if importName == "" {
+			parts := strings.Split(imp.Path, "/")
+			if len(parts) > 0 {
+				importName = parts[len(parts)-1]
+			}
+		}
+		if importName == shortPackageName {
+			return imp.Path
+		}
+	}
+	return shortPackageName
+}
+
+// getFullType processes an AST expression and returns comprehensive TypeDetails.
+func getFullType(expr ast.Expr, pkg Package) (*TypeDetails, error) {
+	coallesce := func(a, b *string) *string {
+		if a != nil && *a != "" {
+			return a
+		}
+		return b
+	}
+	tr := TypeDetails{
+		IsPointer:  false,
+		IsSlice:    false,
+		IsMap:      false,
+		IsBuiltin:  false,
+		IsExternal: false,
+	}
+
+	switch t := expr.(type) {
+	case *ast.Ident:
+		switch t.Name {
+		case "string", "int", "int32", "int64", "float32", "float64", "bool", "byte", "rune", "error":
+			tr.IsBuiltin = true
+		default:
+			if pkg.Package != "" {
+				tr.PackageName = &pkg.Package
+			}
+			tr.IsBuiltin = false
+		}
+		tr.TypeName = t.Name
+		tr.Type = &t.Name
+
+	case *ast.SelectorExpr:
+		tr.IsExternal = true
+		xFullType, err := getFullType(t.X, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = xFullType.TypeName + "." + t.Sel.Name
+
+		shortPackageName := xFullType.TypeName
+		fullImportPath := resolveFullImportPath(shortPackageName, pkg)
+
+		tr.PackageName = &shortPackageName
+		tr.Package = &fullImportPath
+		tr.Type = &t.Sel.Name
+		tr.TypeReferences = []TypeReference{
+			{
+				Package:     &fullImportPath,
+				PackageName: &shortPackageName,
+				Name:        t.Sel.Name,
+			},
+		}
+
+	case *ast.StarExpr:
+		tr.IsPointer = true
+		innerFullType, err := getFullType(t.X, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.IsSlice = tr.IsSlice || innerFullType.IsSlice
+		tr.IsMap = tr.IsMap || innerFullType.IsMap
+		tr.TypeName = "*" + innerFullType.TypeName
+		tr.TypeReferences = append(tr.TypeReferences, innerFullType.TypeReferences...)
+		tr.Package = coallesce(tr.Package, innerFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, innerFullType.PackageName)
+		tr.Type = coallesce(tr.Type, innerFullType.Type)
+
+	case *ast.IndexExpr:
+		xFullType, err := getFullType(t.X, pkg)
+		if err != nil {
+			return nil, err
+		}
+		indexFullType, err := getFullType(t.Index, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("%s[%s]", xFullType.TypeName, indexFullType.TypeName)
+		tr.Type = &xFullType.TypeName
+		tr.Package = coallesce(tr.Package, indexFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, indexFullType.PackageName)
+
+	case *ast.IndexListExpr:
+		xFullType, err := getFullType(t.X, pkg)
+		if err != nil {
+			return nil, err
+		}
+		indices := []string{}
+		for _, index := range t.Indices {
+			indexFullType, err := getFullType(index, pkg)
+			if err != nil {
+				return nil, err
+			}
+			indices = append(indices, indexFullType.TypeName)
+		}
+		tr.TypeName = fmt.Sprintf("%s[%s]", xFullType.TypeName, strings.Join(indices, ", "))
+		tr.Type = &xFullType.TypeName
+		tr.Package = coallesce(tr.Package, xFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, xFullType.PackageName)
+
+	case *ast.ArrayType:
+		tr.IsSlice = true
+		eltFullType, err := getFullType(t.Elt, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = "[]" + eltFullType.TypeName
+		tr.Type = &eltFullType.TypeName
+		tr.Package = coallesce(tr.Package, eltFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, eltFullType.PackageName)
+
+	case *ast.ChanType:
+		dir := ""
+		switch t.Dir {
+		case ast.RECV:
+			dir = "<-chan "
+		case ast.SEND:
+			dir = "chan<- "
+		default:
+			dir = "chan "
+		}
+		valueFullType, err := getFullType(t.Value, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("%s%s", dir, valueFullType.TypeName)
+		tr.Type = &valueFullType.TypeName
+		tr.Package = coallesce(tr.Package, valueFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, valueFullType.PackageName)
+
+	case *ast.MapType:
+		keyFullType, err := getFullType(t.Key, pkg)
+		if err != nil {
+			return nil, err
+		}
+		valueFullType, err := getFullType(t.Value, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("map[%s]%s", keyFullType.TypeName, valueFullType.TypeName)
+		tr.IsMap = true
+		tr.Type = &valueFullType.TypeName
+		tr.Package = coallesce(tr.Package, valueFullType.Package)
+		tr.PackageName = coallesce(tr.PackageName, valueFullType.PackageName)
+
+	case *ast.FuncType:
+		params, err := fieldListToString(t.Params, pkg)
+		if err != nil {
+			return nil, err
+		}
+		results, err := fieldListToString(t.Results, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("func(%s) (%s)", params, results)
+		tr.Type = &tr.TypeName
+
+	case *ast.InterfaceType:
+		methodsStr, err := fieldListToString(t.Methods, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("interface{%s}", methodsStr)
+		tr.Type = &tr.TypeName
+
+	case *ast.StructType:
+		fieldsStr, err := fieldListToString(t.Fields, pkg)
+		if err != nil {
+			return nil, err
+		}
+		tr.TypeName = fmt.Sprintf("struct{%s}", fieldsStr)
+		tr.Type = &tr.TypeName
+
+	case *ast.Ellipsis:
+		eltFullType, err := getFullType(t.Elt, pkg)
+		if err != nil {
+			return nil, err
+		}
+		if eltFullType == nil {
+			tr.TypeName = "..."
+		} else {
+			if eltFullType.PackageName == nil {
+				tr.TypeName = "..." + eltFullType.TypeName
+			} else {
+				tr.TypeName = "..." + justTypeString(eltFullType.TypeName, eltFullType.IsPointer, eltFullType.IsSlice, &ast.Ident{Name: *eltFullType.PackageName})
+			}
+		}
+		tr.Type = &eltFullType.TypeName
+
+	case *ast.ParenExpr:
+		return getFullType(t.X, pkg)
+
+	default:
+		return nil, fmt.Errorf("unsupported type: %T", expr)
+	}
+
+	return &tr, nil
+}
+
+// fieldListToString converts an *ast.FieldList to its string representation.
+func fieldListToString(fl *ast.FieldList, pkg Package) (string, error) {
+	if fl == nil {
+		return "", nil
+	}
+	fields := []string{}
+	for _, field := range fl.List {
+		typeRef, err := getFullType(field.Type, pkg)
+		if err != nil {
+			return "", err
+		}
+		if len(field.Names) == 0 {
+			fields = append(fields, typeRef.TypeName)
+		} else {
+			for _, name := range field.Names {
+				fields = append(fields, fmt.Sprintf("%s %s", name.Name, typeRef.TypeName))
+			}
+		}
+	}
+	return strings.Join(fields, ", "), nil
+}
+
+func justTypeString(typeName string, isPointer, isSlice bool, packageName *ast.Ident) string {
+	if isPointer {
+		typeName = "*" + typeName
+	}
+	if isSlice {
+		typeName = "[]" + typeName
+	}
+	if packageName != nil {
+		typeName = packageName.Name + "." + typeName
+	}
+	return typeName
+}
+
 func exprToString(expr ast.Expr) string {
 	var buf bytes.Buffer
 	err := printer.Fprint(&buf, token.NewFileSet(), expr)
@@ -700,14 +984,12 @@ func exprToString(expr ast.Expr) string {
 	return buf.String()
 }
 
-
 func getDocsForStruct(doc string) []string {
 	trimmed := strings.Trim(doc, "\n")
 	if trimmed == "" {
 		return []string{}
 	}
 	tmp := strings.Split(trimmed, "\n")
-
 	docs := make([]string, 0, len(tmp))
 	for _, v := range tmp {
 		clean := cleanDocText(v)
@@ -762,294 +1044,4 @@ func cleanDocText(doc string) string {
 		doc = reverseString(strings.Replace(reverseString(doc), "/*", "", 1))
 	}
 	return strings.Trim(strings.Trim(doc, " "), "\n")
-}
-
-// resolveFullImportPath resolves a short package name to its full import path
-// by looking through the package's imports list.
-func resolveFullImportPath(shortPackageName string, pkg Package) string {
-	// Look through the package imports to find the full path
-	for _, imp := range pkg.Imports {
-		// Handle both aliased and non-aliased imports
-		importName := imp.Name
-		if importName == "" {
-			// For non-aliased imports, the package name is the last part of the path
-			parts := strings.Split(imp.Path, "/")
-			if len(parts) > 0 {
-				importName = parts[len(parts)-1]
-			}
-		}
-
-		if importName == shortPackageName {
-			return imp.Path
-		}
-	}
-
-	// If not found in imports, return the short name as fallback
-	return shortPackageName
-}
-
-// getFullType processes an AST expression and returns a comprehensive TypeReference.
-func getFullType(expr ast.Expr, pkg Package) (*TypeDetails, error) {
-	//TODO: need to know if is builtin, custom type on current package (needs current package), or external type
-
-	coallesce := func(a, b *string) *string {
-		if a != nil && *a != "" {
-			return a
-		}
-		return b
-	}
-	var tr TypeDetails
-	tr = TypeDetails{
-		// Package:     nil,
-		// PackageName: nil,
-		// TypeName:    "",
-		IsPointer:  false,
-		IsSlice:    false,
-		IsMap:      false,
-		IsBuiltin:  false,
-		IsExternal: false,
-	}
-
-	switch t := expr.(type) {
-	case *ast.Ident:
-		switch t.Name {
-		case "string", "int", "int32", "int64", "float32", "float64", "bool", "byte", "rune", "error":
-			tr.IsBuiltin = true
-		default:
-			// TODO: need to know if it's apackage or a Type that needs the PackageName from pkg
-			if pkg.Package != "" {
-				tr.PackageName = &pkg.Package
-			}
-
-			tr.IsBuiltin = false
-		}
-		tr.TypeName = t.Name
-		tr.Type = &t.Name
-		// Optionally, set IsBuiltin based on known built-in types
-		// Example:
-		// tr.IsBuiltin = isBuiltinType(t.Name)
-
-	case *ast.SelectorExpr:
-		tr.IsExternal = true
-		xFullType, err := getFullType(t.X, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = xFullType.TypeName + "." + t.Sel.Name
-
-		// Resolve the full import path for the package
-		shortPackageName := xFullType.TypeName
-		fullImportPath := resolveFullImportPath(shortPackageName, pkg)
-
-		tr.PackageName = &shortPackageName
-		tr.Package = &fullImportPath
-		tr.Type = &t.Sel.Name
-		tr.TypeReferences = []TypeReference{
-			{
-				Package:     &fullImportPath,
-				PackageName: &shortPackageName,
-				Name:        t.Sel.Name,
-			},
-		}
-
-	case *ast.StarExpr:
-		tr.IsPointer = true
-		innerFullType, err := getFullType(t.X, pkg)
-		if err != nil {
-			return nil, err
-		}
-
-		// Propagate flags from the inner type
-		tr.IsSlice = tr.IsSlice || innerFullType.IsSlice
-		tr.IsMap = tr.IsMap || innerFullType.IsMap
-		tr.TypeName = "*" + innerFullType.TypeName
-		// tr.Type = innerFullType.Type
-		tr.TypeReferences = append(tr.TypeReferences, innerFullType.TypeReferences...)
-		tr.Package = coallesce(tr.Package, innerFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, innerFullType.PackageName)
-		tr.Type = coallesce(tr.Type, innerFullType.Type)
-
-	case *ast.IndexExpr:
-		// Handle single type parameter (legacy support)
-		xFullType, err := getFullType(t.X, pkg)
-		if err != nil {
-			return nil, err
-		}
-		indexFullType, err := getFullType(t.Index, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("%s[%s]", xFullType.TypeName, indexFullType.TypeName)
-		tr.Type = &xFullType.TypeName
-		tr.Package = coallesce(tr.Package, indexFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, indexFullType.PackageName)
-		// Optionally, propagate other flags if necessary
-
-	case *ast.IndexListExpr:
-		// Handle multiple type parameters (generics)
-		xFullType, err := getFullType(t.X, pkg)
-		if err != nil {
-			return nil, err
-		}
-		indices := []string{}
-		for _, index := range t.Indices {
-			indexFullType, err := getFullType(index, pkg)
-			if err != nil {
-				return nil, err
-			}
-			indices = append(indices, indexFullType.TypeName)
-		}
-		tr.TypeName = fmt.Sprintf("%s[%s]", xFullType.TypeName, strings.Join(indices, ", "))
-		tr.Type = &xFullType.TypeName
-		tr.Package = coallesce(tr.Package, xFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, xFullType.PackageName)
-		// Optionally, handle flags from generic parameters
-
-	case *ast.ArrayType:
-		tr.IsSlice = true
-		eltFullType, err := getFullType(t.Elt, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = "[]" + eltFullType.TypeName
-		tr.Type = &eltFullType.TypeName
-		tr.Package = coallesce(tr.Package, eltFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, eltFullType.PackageName)
-		// Optionally, propagate other flags from element type
-
-	case *ast.ChanType:
-		// Handle channel types
-		dir := ""
-		switch t.Dir {
-		case ast.RECV:
-			dir = "<-chan "
-		case ast.SEND:
-			dir = "chan<- "
-		default:
-			dir = "chan "
-		}
-		valueFullType, err := getFullType(t.Value, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("%s%s", dir, valueFullType.TypeName)
-		tr.Type = &valueFullType.TypeName
-		tr.Package = coallesce(tr.Package, valueFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, valueFullType.PackageName)
-		// Optionally, propagate other flags from value type
-
-	case *ast.MapType:
-		keyFullType, err := getFullType(t.Key, pkg)
-		if err != nil {
-			return nil, err
-		}
-		valueFullType, err := getFullType(t.Value, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("map[%s]%s", keyFullType.TypeName, valueFullType.TypeName)
-		tr.IsMap = true
-		tr.Type = &valueFullType.TypeName
-		tr.Package = coallesce(tr.Package, valueFullType.Package)
-		tr.PackageName = coallesce(tr.PackageName, valueFullType.PackageName)
-		// Optionally, propagate other flags from key/value types
-
-	case *ast.FuncType:
-		// Simplistic representation; expand as needed
-		params, err := fieldListToString(t.Params, pkg)
-		if err != nil {
-			return nil, err
-		}
-		results, err := fieldListToString(t.Results, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("func(%s) (%s)", params, results)
-		tr.Type = &tr.TypeName
-		// Func types may have their own flags if needed
-
-	case *ast.InterfaceType:
-		methodsStr, err := fieldListToString(t.Methods, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("interface{%s}", methodsStr)
-		tr.Type = &tr.TypeName
-		// Optionally, handle embedded interfaces or other flags
-
-	case *ast.StructType:
-		fieldsStr, err := fieldListToString(t.Fields, pkg)
-		if err != nil {
-			return nil, err
-		}
-		tr.TypeName = fmt.Sprintf("struct{%s}", fieldsStr)
-		tr.Type = &tr.TypeName
-		// Optionally, handle embedded fields or other flags
-
-	case *ast.Ellipsis:
-		tmp := t // Direct type assertion
-		eltFullType, err := getFullType(tmp.Elt, pkg)
-		if err != nil {
-			return nil, err
-		}
-		if eltFullType == nil {
-			tr.TypeName = "..."
-		} else {
-			if eltFullType.PackageName == nil {
-				tr.TypeName = "..." + eltFullType.TypeName
-			} else {
-				tr.TypeName = "..." + justTypeString(eltFullType.TypeName, eltFullType.IsPointer, eltFullType.IsSlice, &ast.Ident{Name: *eltFullType.PackageName})
-			}
-		}
-		tr.Type = &eltFullType.TypeName
-		// Adjust flags if necessary
-
-	case *ast.ParenExpr:
-		// Handle parenthesized expressions by unwrapping and recursing
-		return getFullType(t.X, pkg)
-
-	default:
-		return nil, fmt.Errorf("unsupported type: %T", expr)
-	}
-
-	return &tr, nil
-}
-
-// fieldListToString converts an *ast.FieldList to its string representation.
-// Implement this function based on your specific requirements.
-func fieldListToString(fl *ast.FieldList, pkg Package) (string, error) {
-	if fl == nil {
-		return "", nil
-	}
-	fields := []string{}
-	for _, field := range fl.List {
-		typeRef, err := getFullType(field.Type, pkg)
-		if err != nil {
-			return "", err
-		}
-		if len(field.Names) == 0 {
-			fields = append(fields, typeRef.TypeName)
-		} else {
-			for _, name := range field.Names {
-				fields = append(fields, fmt.Sprintf("%s %s", name.Name, typeRef.TypeName))
-			}
-		}
-	}
-	return strings.Join(fields, ", "), nil
-}
-
-// justTypeString is a helper function to format type strings based on flags.
-// Implement this function based on your specific requirements.
-func justTypeString(typeName string, isPointer, isSlice bool, packageName *ast.Ident) string {
-	// Example implementation:
-	if isPointer {
-		typeName = "*" + typeName
-	}
-	if isSlice {
-		typeName = "[]" + typeName
-	}
-	if packageName != nil {
-		typeName = packageName.Name + "." + typeName
-	}
-	return typeName
 }

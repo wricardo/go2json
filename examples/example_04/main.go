@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	codesurgeon "github.com/wricardo/go2json"
+	"github.com/wricardo/go2json"
 )
 
 type INode interface {
@@ -15,16 +15,16 @@ type INode interface {
 }
 
 func main() {
-	tmp, err := codesurgeon.ParseFile("other.go")
+	tmp, err := go2json.ParseFile("other.go")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	pkg := tmp.Packages[0]
-	fragment := make([]codesurgeon.CodeFragment, 0)
+	fragment := make([]go2json.CodeFragment, 0)
 	for _, s := range pkg.Structs {
-		fragment = append(fragment, codesurgeon.CodeFragment{
-			Content: codesurgeon.RenderTemplateNoError(`
+		fragment = append(fragment, go2json.CodeFragment{
+			Content: go2json.RenderTemplateNoError(`
 			func (n {{.Name}}) GetID() string {
 				return n.Id
 			}
@@ -57,9 +57,9 @@ func main() {
 		})
 	}
 
-	fragments := map[string][]codesurgeon.CodeFragment{
+	fragments := map[string][]go2json.CodeFragment{
 		"other.go": fragment,
 	}
 
-	codesurgeon.InsertCodeFragments(fragments)
+	go2json.InsertCodeFragments(fragments)
 }

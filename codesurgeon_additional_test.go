@@ -1,4 +1,4 @@
-package codesurgeon
+package go2json
 
 import (
 	"go/ast"
@@ -728,14 +728,14 @@ func TestParseStringEdgeCases(t *testing.T) {
 	})
 }
 
-// --- parseDeclarationsFromCodeFrament edge cases ---
+// --- parseDeclarationsFromCodeFragment edge cases ---
 
 func TestParseDeclarationsFromCodeFragment(t *testing.T) {
 	t.Run("code with package declaration", func(t *testing.T) {
 		code := `package mypackage
 		func Foo() {}
 		`
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 		require.NoError(t, err)
 		require.Len(t, decls, 1)
 		require.Equal(t, "Foo", getDeclName(decls[0]))
@@ -743,7 +743,7 @@ func TestParseDeclarationsFromCodeFragment(t *testing.T) {
 
 	t.Run("code without package declaration", func(t *testing.T) {
 		code := `func Bar() {}`
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 		require.NoError(t, err)
 		require.Len(t, decls, 1)
 		require.Equal(t, "Bar", getDeclName(decls[0]))
@@ -751,7 +751,7 @@ func TestParseDeclarationsFromCodeFragment(t *testing.T) {
 
 	t.Run("method declaration", func(t *testing.T) {
 		code := `func (s *MyStruct) Method() string { return "" }`
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 		require.NoError(t, err)
 		require.Len(t, decls, 1)
 		require.Equal(t, "Method", getDeclName(decls[0]))
@@ -765,7 +765,7 @@ func TestGetDeclName(t *testing.T) {
 		code := `
 		import "fmt"
 		`
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{Content: code})
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{Content: code})
 		require.NoError(t, err)
 		// Import declarations return empty name
 		for _, d := range decls {
@@ -779,7 +779,7 @@ func TestGetDeclName(t *testing.T) {
 
 func TestGetReceiverType(t *testing.T) {
 	t.Run("pointer receiver", func(t *testing.T) {
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{
 			Content: `func (f *Foo) Bar() {}`,
 		})
 		require.NoError(t, err)
@@ -791,7 +791,7 @@ func TestGetReceiverType(t *testing.T) {
 	})
 
 	t.Run("value receiver", func(t *testing.T) {
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{
 			Content: `func (f Foo) Bar() {}`,
 		})
 		require.NoError(t, err)
@@ -803,7 +803,7 @@ func TestGetReceiverType(t *testing.T) {
 	})
 
 	t.Run("no receiver", func(t *testing.T) {
-		decls, err := parseDeclarationsFromCodeFrament(CodeFragment{
+		decls, err := parseDeclarationsFromCodeFragment(CodeFragment{
 			Content: `func Bar() {}`,
 		})
 		require.NoError(t, err)

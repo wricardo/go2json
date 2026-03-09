@@ -10,7 +10,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	g2j "github.com/wricardo/go2json"
+	"github.com/wricardo/go2json"
 )
 
 //go:embed skills/go2json/SKILL.md
@@ -102,20 +102,20 @@ func main() {
 					ignores := cCtx.StringSlice("ignore-rule")
 
 					if cCtx.Bool("recursive") {
-						parsed, err := g2j.ParseDirectoryRecursive(path)
+						parsed, err := go2json.ParseDirectoryRecursive(path)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "Failed to parse directory: %v\n", err)
 							os.Exit(1)
 						}
 
-						fmt.Println(g2j.PrettyPrint(parsed, cCtx.String("format"), ignores, cCtx.Bool("plain-structs"), cCtx.Bool("fields-plain-structs"), cCtx.Bool("structs-with-method"), cCtx.Bool("fields-structs-with-method"), cCtx.Bool("methods"), cCtx.Bool("functions"), cCtx.Bool("tags"), cCtx.Bool("comments"), cCtx.Bool("omit-nulls")))
+						fmt.Println(go2json.PrettyPrint(parsed, cCtx.String("format"), ignores, cCtx.Bool("plain-structs"), cCtx.Bool("fields-plain-structs"), cCtx.Bool("structs-with-method"), cCtx.Bool("fields-structs-with-method"), cCtx.Bool("methods"), cCtx.Bool("functions"), cCtx.Bool("tags"), cCtx.Bool("comments"), cCtx.Bool("omit-nulls")))
 					} else {
-						parsed, err := g2j.ParseDirectoryWithFilter(path, nil)
+						parsed, err := go2json.ParseDirectoryWithFilter(path, nil)
 						if err != nil {
 							fmt.Fprintf(os.Stderr, "Failed to parse directory: %v\n", err)
 							os.Exit(1)
 						}
-						fmt.Println(g2j.PrettyPrint([]*g2j.ParsedInfo{parsed}, cCtx.String("format"), ignores, cCtx.Bool("plain-structs"), cCtx.Bool("fields-plain-structs"), cCtx.Bool("structs-with-method"), cCtx.Bool("fields-structs-with-method"), cCtx.Bool("methods"), cCtx.Bool("functions"), cCtx.Bool("tags"), cCtx.Bool("comments"), cCtx.Bool("omit-nulls")))
+						fmt.Println(go2json.PrettyPrint([]*go2json.ParsedInfo{parsed}, cCtx.String("format"), ignores, cCtx.Bool("plain-structs"), cCtx.Bool("fields-plain-structs"), cCtx.Bool("structs-with-method"), cCtx.Bool("fields-structs-with-method"), cCtx.Bool("methods"), cCtx.Bool("functions"), cCtx.Bool("tags"), cCtx.Bool("comments"), cCtx.Bool("omit-nulls")))
 					}
 					return nil
 				},
@@ -156,17 +156,17 @@ func main() {
 				},
 				Action: func(cCtx *cli.Context) error {
 					path := cCtx.String("path")
-					parsed, err := g2j.ParseDirectoryRecursive(path)
+					parsed, err := go2json.ParseDirectoryRecursive(path)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "Failed to parse directory: %v\n", err)
 						os.Exit(1)
 					}
-					result, err := g2j.DescribeType(cCtx.String("type"), parsed, cCtx.Int("depth"))
+					result, err := go2json.DescribeType(cCtx.String("type"), parsed, cCtx.Int("depth"))
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 						os.Exit(1)
 					}
-					fmt.Println(g2j.PrettyPrint(result, cCtx.String("format"), nil, true, true, true, true, true, true, true, false, cCtx.Bool("omit-nulls")))
+					fmt.Println(go2json.PrettyPrint(result, cCtx.String("format"), nil, true, true, true, true, true, true, true, false, cCtx.Bool("omit-nulls")))
 					return nil
 				},
 			},

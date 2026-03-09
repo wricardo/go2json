@@ -1,4 +1,4 @@
-package codesurgeon
+package go2json
 
 import (
 	"strings"

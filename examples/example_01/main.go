@@ -1,7 +1,7 @@
 package main
 
 import (
-	codesurgeon "github.com/wricardo/go2json"
+	"github.com/wricardo/go2json"
 )
 
 func main() {
@@ -13,10 +13,10 @@ func main() {
 		{2, "Nexmo"},
 	}
 
-	fragments := map[string][]codesurgeon.CodeFragment{
+	fragments := map[string][]go2json.CodeFragment{
 		"dynamic.go": {
-			codesurgeon.CodeFragment{
-				Content: codesurgeon.RenderTemplateNoError(`
+			go2json.CodeFragment{
+				Content: go2json.RenderTemplateNoError(`
 					{{- range .}}
 					type {{.Name}}Provider struct {
 						Id   int
@@ -27,8 +27,8 @@ func main() {
 				`, smsProviders),
 				Overwrite: true,
 			},
-			codesurgeon.CodeFragment{
-				Content: codesurgeon.RenderTemplateNoError(`
+			go2json.CodeFragment{
+				Content: go2json.RenderTemplateNoError(`
 				{{- range .}}
 				func (p *{{.Name}}Provider) SendSMS(to, body string) error {
 					fmt.Printf("Sending SMS to %s using %s provider\n", to, p.Name)
@@ -38,7 +38,7 @@ func main() {
 				`, smsProviders),
 				Overwrite: false,
 			},
-			codesurgeon.CodeFragment{
+			go2json.CodeFragment{
 				Content: `type Person struct{
 					Name string
 				}`,
@@ -47,5 +47,5 @@ func main() {
 		},
 	}
 
-	codesurgeon.InsertCodeFragments(fragments)
+	go2json.InsertCodeFragments(fragments)
 }

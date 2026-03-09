@@ -48,23 +48,27 @@ go test -v ./... -count=1  # Disable test caching
 
 ### Core Packages
 
-1. **`structparser.go`**: Parses Go source files to extract struct definitions, fields, methods, functions, interfaces, and type definitions. Core AST analysis logic.
+1. **`types.go`**: All data type definitions — `ParsedInfo`, `Module`, `Package`, `Struct`, `Method`, `Field`, `TypeDetails`, etc.
 
-2. **`exp.go`**: Extracts parsed info from AST packages — structs, interfaces, type defs, functions, methods, imports, constants, variables.
+2. **`parser.go`**: Public Parse* API — `ParseDirectory`, `ParseDirectoryRecursive`, `ParseDirectoryWithFilter`, `ParseString`.
 
-3. **`describe.go`**: BFS-based type dependency traversal. Given a type name, walks field and method type references up to a configurable depth.
+3. **`extract.go`**: AST extraction helpers — `extractParsedInfo`, `extractStructs`, `extractInterfaces`, `getFullType`, `parseFunctionDecl`, and all supporting unexported functions.
 
-4. **`parser_pretty_print.go`**: Formats parsed data into output formats (json, llm, grepindex).
+4. **`typeindex.go`**: BFS-based type dependency traversal — `BuildTypeIndex`, `DescribeType`.
 
-5. **`codesurgeon.go`**: Code manipulation utilities for analyzing function signatures, receiver types, and inserting/replacing code fragments.
+5. **`format.go`**: Output formatting — `PrettyPrint` and all formatters for json, llm, and grepindex modes.
 
-6. **`cmd/go2json/main.go`**: CLI entry point using urfave/cli/v2 with `parse` and `describe` commands.
+6. **`rewrite.go`**: Code manipulation utilities — `ApplyFileChanges`, `InsertCodeFragments`, `FindFunction`, `FormatCodeAndFixImports`, `EnsureGoFileExists`, `FormatWithGoImports`.
+
+7. **`template.go`**: Go template rendering — `RenderTemplate`, `RenderTemplateNoError`, `MustRenderTemplate`.
+
+8. **`cmd/go2json/main.go`**: CLI entry point using urfave/cli/v2 with `parse` and `describe` commands.
 
 ### Data Flow
 
 1. **Parse Input**: CLI entry point accepts path and flags
 2. **AST Analysis**: `ParseDirectoryRecursive()` or `ParseDirectoryWithFilter()` process Go files
-3. **Extract Info**: `exp.go` extracts structs, methods, functions, interfaces, type defs, comments, and tags
+3. **Extract Info**: `extract.go` extracts structs, methods, functions, interfaces, type defs, comments, and tags
 4. **Format Output**: `PrettyPrint()` formats results based on requested format (json/llm/grepindex)
 
 ### Key Dependencies
@@ -96,17 +100,17 @@ The main output type containing:
 
 ### Parsing from Code
 ```go
-import g2j "github.com/wricardo/go2json"
+import "github.com/wricardo/go2json"
 
-parsed, err := g2j.ParseDirectoryRecursive("./mypackage")
-output := g2j.PrettyPrint(parsed, "llm", nil, true, true, true, true, true, true, true, false, false)
+parsed, err := go2json.ParseDirectoryRecursive("./mypackage")
+output := go2json.PrettyPrint(parsed, "llm", nil, true, true, true, true, true, true, true, false, false)
 ```
 
 ### Describe a Type
 ```go
-parsed, _ := g2j.ParseDirectoryRecursive("./mypackage")
-result, _ := g2j.DescribeType("MyStruct", parsed, 2)
-fmt.Println(g2j.PrettyPrint(result, "llm", nil, true, true, true, true, true, true, true, false, false))
+parsed, _ := go2json.ParseDirectoryRecursive("./mypackage")
+result, _ := go2json.DescribeType("MyStruct", parsed, 2)
+fmt.Println(go2json.PrettyPrint(result, "llm", nil, true, true, true, true, true, true, true, false, false))
 ```
 
 ## Important Notes

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	codesurgeon "github.com/wricardo/go2json"
+	"github.com/wricardo/go2json"
 )
 
 func main() {
@@ -19,13 +19,13 @@ func main() {
 		{2, "Nexmo"},
 	}
 
-	changes := []codesurgeon.FileChange{
+	changes := []go2json.FileChange{
 		{
 			PackageName: "main",
 			File:        "assets/dynamic.go",
-			Fragments: []codesurgeon.CodeFragment{
+			Fragments: []go2json.CodeFragment{
 				{
-					Content: codesurgeon.RenderTemplateNoError(`
+					Content: go2json.RenderTemplateNoError(`
 			import "fmt"
 			{{- range .}}
 			type {{.Name}}Provider struct {
@@ -53,7 +53,7 @@ func main() {
 	jsonChanges, _ := json.Marshal(changes)
 	fmt.Println(strings.Replace(string(jsonChanges), "\\t", "", -1))
 
-	codesurgeon.ApplyFileChanges(changes)
+	go2json.ApplyFileChanges(changes)
 }
 
 // Get user input for request

@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"log"
 
-	g2j "github.com/wricardo/go2json"
+	"github.com/wricardo/go2json"
 )
 
 func main() {
 	fmt.Println("Example 02: Parse directory recursively and output as JSON")
 
 	// Parse the current directory recursively
-	parsed, err := g2j.ParseDirectoryRecursive(".")
+	parsed, err := go2json.ParseDirectoryRecursive(".")
 	if err != nil {
 		log.Fatalf("Failed to parse directory: %v", err)
 	}
 
 	// Print the results in JSON format
-	output := g2j.PrettyPrint(
+	output := go2json.PrettyPrint(
 		parsed,
 		"json",                    // format
 		nil,                       // ignore rules

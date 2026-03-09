@@ -1,4 +1,4 @@
-package codesurgeon
+package go2json
 
 // helper is a struct that provides helper methods for accessing parsed data.
 type helper struct {
